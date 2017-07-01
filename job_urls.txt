@@ -1,0 +1,42 @@
+# urls to check
+# 404, sorry, we can't find the page
+#https://boards.greenhouse.io/embed/job_app?for=pantheon&token=135120&b=https://www.getpantheon.com/jobs
+# another one, company domain can be parsed out from the page
+https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply
+
+# the job description is downloaded with JS, this one is missing and bu there is no sign of it on tha page (status code is 200) 
+#http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
+# vacancies for alteryx come from https://newton.newtonsoftware.com/career/CareerHome.action?clientId=8aa0050632afa2010132b69b35493eab&gnewtonResize=https://newton.newtonsoftware.com/career/GnewtonResize.htm&specialization=&source=Indeed
+# an example vacancy, domain of the company can be parsed from homeUrl variable in JS:
+https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed
+
+# a jobs site, there is context advertizing. The TLD is absent on the page. As I understand, the site is an aggregator of job descriptions from other sites.
+# there is an "original job" link, which may be followed to another site where the TLD can sometimes be present.
+http://www.indeed.com/viewjob?jk=8539193e3a45a062&q=sales+operations&l=San+Francisco%2C+CA&tk=1aevt39cab9rbe1v&from=web
+http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR7jOVeKpHgZBD8uj-JYSLVQQdOzuvtcRZqR1VUgvQgUCLrlSAZIc8VspZ09RpfJLmZ1g
+http://www.indeed.com/cmp/The-Resource-Corner,-LLC/jobs/Bookkeeper-ce09ccbdef05dafc?sjdu=QwrRXKrqZ3CNX5W-O9jEvZYUjcFz8G6VtThA0LDUaBBKkXOI7HyNUFAgnmvj10geaet8H1fzoalk9SEj0AgHMA
+
+# 404, the vacancy is absent. As I understand this is not an aggregator, but a company that publishes its own jobs.
+# the jobs are here: http://marketo.jobs/careers/, the TLD can be parsed out of the url itself.
+# http://marketo.jobs/careers/oJTD1fw0/security-administrator?jvs=IndeedSponsored
+# another vacancy:
+http://marketo.jobs/careers/oTU95fwL/senior-software-engineer-marketing-platform
+
+# 404. Besides, I had to remove "br" encoding from Firefox's Accept-Encoding header, since Facebook uses it, but requests dows not support it.
+#https://www.facebook.com/careers/jobs/a0I1200000IA4pXEAT/
+https://www.facebook.com/careers/jobs/a0I1200000JXkMREA1/
+
+# The vacancy is absent and I can not find anything similar. Status code is 200 instead of 404.
+# http://hire.jobvite.com/CompanyJobs/Careers.aspx?k=Job&c=q669Vfw0&j=oajq2fwF&s=Indeed
+
+
+# 404. And it seems I have to make some registration to be able to view something.
+https://jobs.lever.co/breeze/11831827-b10e-4000-8d5a-875fe7def7bc?lever-source=indeed
+
+
+# 404. Sorry! That job has been removed. 
+# https://www.dice.com/jobs/detail/10230516/335784?src=27&rx_medium=cpc&CMPID=AG_IN_PD_JS_AV_OG_RC_&utm_source=Indeed&utm_medium=Aggregator&utm_content=&utm_campaign=Advocacy_Ongoing&rx_source=Indeed&rx_campaign=Indeed18&rx_group=85
+# the vacancies site, there is context advertising. TLD is missing on the page, but is available at a separate page linked at the top (https://www.dice.com/company/cybercod).
+https://www.dice.com/jobs/detail/Senior-JavaScript-Engineer-%26%2345-Angular-%7C-SaaS-%26%2345-San-Francisco-CyberCoders-San-Francisco-CA-94101/cybercod/RS2%26%2345136030562?icid=sr15-1p&q=SaaS%20Administrator&l=94101
+
+

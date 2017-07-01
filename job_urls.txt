@@ -4,9 +4,11 @@
 # another one, company domain can be parsed out from the page
 https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply
 
-# the job description is downloaded with JS, this one is missing and bu there is no sign of it on tha page (status code is 200) 
-#http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
-# vacancies for alteryx come from https://newton.newtonsoftware.com/career/CareerHome.action?clientId=8aa0050632afa2010132b69b35493eab&gnewtonResize=https://newton.newtonsoftware.com/career/GnewtonResize.htm&specialization=&source=Indeed
+# the job description is downloaded with JS, this one is missing and but there is no sign of it on tha page (status code is 200) 
+# http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
+# Vacancies for alteryx.com come from https://newton.newtonsoftware.com/career/CareerHome.action?clientId=9aa0050632afa2010132b69b35493eab&gnewtonResize=https://newton.newtonsoftware.com/career/GnewtonResize.htm&specialization=&source=Indeed
+# Though the page does not contain the job description, it contains a clientId with which we can get a list of jobs. 
+# aux/newton_jobs.py is a script which checks the page for a newtonsoftware's client id and if the id is found it lists the jobs. 
 # an example vacancy, domain of the company can be parsed from homeUrl variable in JS:
 https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed
 

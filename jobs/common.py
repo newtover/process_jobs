@@ -13,3 +13,7 @@ Connection: keep-alive
 Upgrade-Insecure-Requests: 1
 """)
 
+def dump_html(text, filename):
+    with open(filename, 'w') as f1:
+        print(text, file=f1)
+

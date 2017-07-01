@@ -5,12 +5,13 @@ import lxml.html as ET
 import re
 import requests
 
-from common import DEFAULT_HEADERS
+from jobs.common import DEFAULT_HEADERS, dump_html
 
 G_LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 DEFAULT_URL = 'https://www.alteryx.com/careers'
+
 
 def try_find_newton_jobs(text):
     # for simplicity, we think that no other CGI-params is specified
@@ -20,15 +21,11 @@ def try_find_newton_jobs(text):
     if match:
         return match.group(1)
 
+
 def extract_newton_jobs(text):
     dom = ET.fromstring(text)
     for a1 in dom.xpath('.//div[@class="gnewtonCareerGroupJobTitleClass"]/a'):
         yield a1.attrib['href'], a1.text.strip()
-
-
-def dump_html(text, filename):
-    with open(filename, 'w') as f1:
-        print(text, file=f1)
 
 
 def main():

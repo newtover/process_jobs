@@ -17,3 +17,15 @@ def dump_html(text, filename):
     with open(filename, 'w') as f1:
         print(text, file=f1)
 
+def skip_comments(lines):
+    return (line for line in lines if not line.startswith('#'))
+
+def rstrip_lines(lines):
+    return (line.rstrip() for line in lines)
+
+def skip_blanks(lines):
+    return (line for line in lines if line)
+
+def iter_urls_from_file(lines):
+    return skip_blanks(rstrip_lines(skip_comments(lines)))
+

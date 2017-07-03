@@ -11,7 +11,7 @@ from jobs.common import DEFAULT_HEADERS
 G_LOG = logging.getLogger(__name__)
 
 class ThrottledFetcher(mp.Process):
-    def __init__(self, parser, q_in=None, q_out=None, q_err=None, name=None, max_workers=None, max_rps=3):
+    def __init__(self, parser, terms_extractor, q_in=None, q_out=None, q_err=None, name=None, max_workers=None, max_rps=3):
         super().__init__(name=None)
         if not q_in:
             q_in = mp.JoinableQueue()
@@ -20,6 +20,7 @@ class ThrottledFetcher(mp.Process):
         if not q_err:
             q_err = mp.Queue()
         self.parser = parser
+        self.terms_extractor = terms_extractor
         self.q_in = q_in
         self.q_out = q_out
         self.q_err = q_err
@@ -53,7 +54,7 @@ class ThrottledFetcher(mp.Process):
         try:
             res = requests.get(url, headers=DEFAULT_HEADERS)
             res.raise_for_status()
-            result, error = self.parser.parse_page(url, res.text)
+            result, error = self.parser.parse_page(url, res.text, self.terms_extractor)
             if error:
                 G_LOG.error('parsing failed url={} | {}'.format(url, error))
                 self.q_err.put((url, error))

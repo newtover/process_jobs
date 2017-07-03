@@ -1,5 +1,7 @@
+from collections import deque
 import logging
 import lxml.html as etree
+import re
 from urllib.parse import urlparse, parse_qs
 from hashlib import sha1
 
@@ -10,26 +12,71 @@ G_LOG = logging.getLogger(__name__)
 def hash_url(url):
     return sha1(url.encode('utf-8')).hexdigest()
 
+def iter_n_grams(text, max_n):
+    if not text:
+        return []
+    chunks = re.split('(\W+)', text)
+    words = deque(maxlen=max_n)
+    words.append(chunks[0])
+    yield (chunks[0],)
+
+    for i in range(2, len(chunks), 2):
+        word = chunks[i]
+        yield (word,)
+        prev_sep = chunks[i-1].strip()
+        # we are not interested in n-grams split by punctuation
+        if prev_sep:  # some punctuation
+            words.clear()
+            words.append(word)
+        elif max_n > 1:  # only spacesi as separator
+            words.append(word)
+            max_n_gram = tuple(words)
+            yield max_n_gram
+            for i in range(2, len(max_n_gram)):
+                yield max_n_gram[-i:]
+
+
 class TermsExtractor:
+    """A simple implementation of extracting terms based on n-gram matching.
+
+    We split text into n-grams, building a set of n-grams and intersect
+    the set with the set of existing terms.
+
+    For simplicity we will lowercase all words and slightly normalize
+    the text.
+    """
     def __init__(self, terms_filename):
         self.terms_filename = terms_filename
         self._terms = set()
+        # the longest n in terms n-grams
+        self.max_n = 1
         self.reload_terms()
 
     def reload_terms(self):
         self._terms.clear()
+        max_n = 1
         with open(self.terms_filename) as f1:
             for line in iter_good_lines(f1):
                 term = tuple(line.lower().split())
                 self._terms.add(term)
+                if len(term) > max_n:
+                    max_n = len(term)
+        self.max_n = max_n
+
+    def iter_n_grams(self, text):
+        return iter_n_grams(text, self.max_n)
 
     def extract_terms(self, text):
-        print(self._terms)
-        return set()
+        """Extract terms from the text description."""
+        text = text.lower()
+        n_grams = set(self.iter_n_grams(text))
+        common = n_grams & self._terms
+        return common
 
     def terms_to_list(self, terms):
         """Convert set of term-tuples into a sorted list of strings."""
         return sorted(' '.join(term) for term in terms)
+
 
 class Result:
     def __init__(self, url, company, techs, site):

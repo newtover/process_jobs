@@ -1,5 +1,6 @@
 import time
 import threading
+import sys
 import random
 import requests
 import multiprocessing as mp
@@ -7,7 +8,7 @@ import aiohttp
 from urllib.parse import urlparse
 import logging
 
-from jobs.common import DEFAULT_HEADERS
+from jobs.common import DEFAULT_HEADERS, iter_good_lines
 from jobs.fetcher import ThrottledFetcher
 from jobs.parser import PageParser, IndeedParser, TermsExtractor, NewtonSoftwareParser, GreenHouseParser
 
@@ -61,12 +62,21 @@ def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
     }
     return fetchers
 
+DESCRIPTION = """A script to generate a list of products we are interested in found in job descriptions.
+
+The script takes a list of urls in stdin and returns a |-separated output for each url.
+The urls that led to exceptions are writte to a separate errors.txt file 
+"""
 
 def main2():
+    import argparse
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    args = parser.parse_args()
+
     start = time.time()
     q_out = mp.Queue()
     q_err = mp.Queue()
-    fetchers = init_fetchers(q_out, q_err, save_page=True)
+    fetchers = init_fetchers(q_out, q_err, save_page=False)
     default_fetcher = fetchers['default']
     for fetcher in fetchers.values():
         fetcher.start()
@@ -93,7 +103,8 @@ def main2():
     writer2.start()
 
 
-    for url in URLS:
+    #for url in URLS:
+    for url in iter_good_lines(sys.stdin):
        urlp = urlparse(url)
        fetcher = fetchers.get(urlp.netloc, default_fetcher)       
        fetcher.q_in.put(url)
@@ -109,6 +120,7 @@ def main2():
 
 if __name__ == '__main__':
     import sys
-    logging.basicConfig(level=logging.ERROR, stream=sys.stderr)   
+    #logging.basicConfig(level=logging.ERROR, stream=sys.stderr)   
+    logging.basicConfig(filename='log.txt')   
     #main1()
     main2()

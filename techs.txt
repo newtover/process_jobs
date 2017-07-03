@@ -1,0 +1,16 @@
+Quickbooks
+Salesforce
+Apex
+ApexSQL
+Tableau
+Domo
+Chartio
+Python
+Django
+mySQL
+Puppet
+Chef
+New Relic
+Nagios
+
+

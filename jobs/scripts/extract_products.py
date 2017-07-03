@@ -4,7 +4,6 @@ import sys
 import random
 import requests
 import multiprocessing as mp
-import aiohttp
 from urllib.parse import urlparse
 import logging
 

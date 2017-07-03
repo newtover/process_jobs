@@ -6,6 +6,7 @@ import concurrent.futures
 import asyncio
 import aiohttp
 import threading
+from urllib.parse import urlparse
 import logging
 
 from jobs.common import DEFAULT_HEADERS
@@ -14,12 +15,7 @@ from jobs.parser import PageParser, IndeedParser, TermsExtractor
 
 G_LOG = logging.getLogger(__name__)
 
-URLS = ['http://localhost:5000/{}'.format(i) for i in range(10)]
 URLS = [
-'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
-'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
-'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
-'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
 'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
 ]
 URLS = [
@@ -37,16 +33,34 @@ def main1():
     print('took {:0.3f}'.format(end-start))
 
 
+def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
+    terms_extractor = TermsExtractor(terms_path)
+    fetchers = {
+        'www.indeed.com': 
+            ThrottledFetcher(
+                parser=IndeedParser(save_page=save_page),
+                terms_extractor=terms_extractor,
+                q_out=q_out, q_err=q_err,
+                max_workers=5),
+        'default':
+            ThrottledFetcher(
+                parser=PageParser(save_page=save_page),
+                terms_extractor=terms_extractor,
+                q_out=q_out, q_err=q_err,
+                max_workers=5, max_rps=0),
+                
+    }
+    return fetchers
+
 
 def main2():
     start = time.time()
     q_out = mp.Queue()
     q_err = mp.Queue()
-    fetcher = ThrottledFetcher(parser=IndeedParser(save_page=True), 
-                               terms_extractor=TermsExtractor('techs.txt'),
-                               q_out=q_out, q_err=q_err,
-                               max_workers=5)
-    fetcher.start()
+    fetchers = init_fetchers(q_out, q_err, save_page=True)
+    default_fetcher = fetchers['default']
+    for fetcher in fetchers.values():
+        fetcher.start()
 
     def write_results(q_out):
         while True:
@@ -62,14 +76,17 @@ def main2():
 
 
     for url in URLS:
+       urlp = urlparse(url)
+       fetcher = fetchers.get(urlp.netloc, default_fetcher)       
        fetcher.q_in.put(url)
-    fetcher.q_in.put(None)
 
-    fetcher.q_in.join()
+    for fetcher in fetchers.values():
+        fetcher.q_in.put(None)
+        fetcher.q_in.join()
     end = time.time()
     q_out.put(None)
     q_err.put(None)
-    print('took {:0.3f}'.format(end-start))    
+    G_LOG.info('took {:0.3f}'.format(end-start))    
 
 
 if __name__ == '__main__':

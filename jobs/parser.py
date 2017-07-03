@@ -12,6 +12,10 @@ G_LOG = logging.getLogger(__name__)
 def hash_url(url):
     return sha1(url.encode('utf-8')).hexdigest()
 
+def extract_site_url(url):
+    urlp = urlparse(url)
+    return '{}://{}'.format(urlp.scheme, urlp.netloc)
+
 def iter_n_grams(text, max_n):
     if not text:
         return []
@@ -101,11 +105,32 @@ class PageParser:
         with open(filename, 'w') as f1:
             print(text, file=f1)
 
+    def _extract_company_name(self, url, text, tree):
+        # we need a generic way of company name extraction from an arbitrary page
+        return ''
+
+    def _extract_company_site(self, url, text, tree):
+        # if it is not an aggregator with its own parser, it is a separate company site
+        return extract_site_url(url)
+
+    def _extract_description(self, url, text, tree):
+       return tree.xpath('string(./body)')
+
     def parse_page(self, url, text, extractor):
-        print('parsing body for {}, len={}'.format(url, len(text)))
         if self.save_page:
             self.do_save_page(url, text)
-        return Result(url, '', '', ''), None
+        tree = etree.fromstring(text)
+        company = self._extract_company_name(url, text, tree)
+        site = self._extract_company_site(url, text, tree)
+        for elem in tree.xpath('.//script'):
+            elem.drop_tree()
+        for elem in tree.xpath('.//style'):
+            elem.drop_tree()
+        description = self._extract_description(url, text, tree)
+        ## print(description)
+        terms = extractor.extract_terms(description)
+        terms = extractor.terms_to_list(terms)
+        return Result(url, company, terms, site), None
 
 
 class IndeedParser(PageParser):
@@ -132,3 +157,38 @@ class IndeedParser(PageParser):
             return res, None
         else:
             return super().parse_page(url, text, extractor)
+
+
+class NewtonSoftwareParser(PageParser):
+    def _extract_company_name(self, url, text, tree):
+        # lxml lowercases the attribute names!
+        return tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
+
+    def _extract_company_site(self, url, text, tree):
+       continue_url = tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-continueurl)')
+       if continue_url:
+           return extract_site_url(continue_url)
+       else:
+           return '' 
+
+    def _extract_description(self, url, text, tree):
+        return tree.xpath('string(.//td[@id="gnewtonJobDescriptionText"])')
+
+
+class GreenHouseParser(PageParser):
+    def _extract_company_site(self, url, text, tree):
+        jobs_url = tree.xpath('string(.//div[@id="header"]/a/@href)')
+        if jobs_url:
+            return extract_site_url(jobs_url)
+        else:
+            return ''
+
+    def _extract_company_name(self, url, text, tree):
+        chunk = tree.xpath('string(.//div[@id="header"]/span[@class="company-name"])').strip()
+        if chunk.startswith('at '):
+            return chunk[3:]
+        else:
+            return chunk
+
+    def _exract_description(self, url, text, tree):
+        return tree.xpath('string(.//div[@id="content"])')

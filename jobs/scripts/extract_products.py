@@ -1,11 +1,9 @@
 import time
+import threading
 import random
 import requests
 import multiprocessing as mp
-import concurrent.futures
-import asyncio
 import aiohttp
-import threading
 from urllib.parse import urlparse
 import logging
 
@@ -18,9 +16,6 @@ G_LOG = logging.getLogger(__name__)
 URLS = [
 'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
 'https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply',
-]
-
-aURLS = [
 'https://www.indeed.com/viewjob?jk=8539193e3a45a062&q=sales+operations&l=San+Francisco%2C+CA&tk=1aevt39cab9rbe1v&from=web',
 'http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR7jOVeKpHgZBD8uj-JYSLVQQdOzuvtcRZqR1VUgvQgUCLrlSAZIc8VspZ09RpfJLmZ1g',
 'http://www.indeed.com/cmp/The-Resource-Corner,-LLC/jobs/Bookkeeper-ce09ccbdef05dafc?sjdu=QwrRXKrqZ3CNX5W-O9jEvZYUjcFz8G6VtThA0LDUaBBKkXOI7HyNUFAgnmvj10geaet8H1fzoalk9SEj0AgHMA',
@@ -82,9 +77,18 @@ def main2():
             if not result:
                 break
             print(result)
+
+    def write_errors(q_err):
+        with open('errors.txt', 'w') as f1:
+            while True:
+                result = q_err.get()
+                if not result:
+                    break
+                print(*result, sep='\t', file=f1)
+
     
     writer1 = threading.Thread(target=write_results, args=(q_out,))
-    writer2 = threading.Thread(target=write_results, args=(q_err,))
+    writer2 = threading.Thread(target=write_errors, args=(q_err,))
     writer1.start()
     writer2.start()
 
@@ -105,6 +109,6 @@ def main2():
 
 if __name__ == '__main__':
     import sys
-    logging.basicConfig(level=logging.INFO, stream=sys.stderr)   
+    logging.basicConfig(level=logging.ERROR, stream=sys.stderr)   
     #main1()
     main2()

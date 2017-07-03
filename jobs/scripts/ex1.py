@@ -11,14 +11,16 @@ import logging
 
 from jobs.common import DEFAULT_HEADERS
 from jobs.fetcher import ThrottledFetcher
-from jobs.parser import PageParser, IndeedParser, TermsExtractor
+from jobs.parser import PageParser, IndeedParser, TermsExtractor, NewtonSoftwareParser, GreenHouseParser
 
 G_LOG = logging.getLogger(__name__)
 
 URLS = [
 'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
+'https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply',
 ]
-URLS = [
+
+aURLS = [
 'https://www.indeed.com/viewjob?jk=8539193e3a45a062&q=sales+operations&l=San+Francisco%2C+CA&tk=1aevt39cab9rbe1v&from=web',
 'http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR7jOVeKpHgZBD8uj-JYSLVQQdOzuvtcRZqR1VUgvQgUCLrlSAZIc8VspZ09RpfJLmZ1g',
 'http://www.indeed.com/cmp/The-Resource-Corner,-LLC/jobs/Bookkeeper-ce09ccbdef05dafc?sjdu=QwrRXKrqZ3CNX5W-O9jEvZYUjcFz8G6VtThA0LDUaBBKkXOI7HyNUFAgnmvj10geaet8H1fzoalk9SEj0AgHMA',
@@ -42,6 +44,18 @@ def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
                 terms_extractor=terms_extractor,
                 q_out=q_out, q_err=q_err,
                 max_workers=5),
+        'newton.newtonsoftware.com':
+            ThrottledFetcher(
+                parser=NewtonSoftwareParser(save_page=save_page),
+                terms_extractor=terms_extractor,
+                q_out=q_out, q_err=q_err,
+                max_workers=5),
+        'boards.greenhouse.io':
+            ThrottledFetcher(
+                parser=GreenHouseParser(save_page=save_page),
+                terms_extractor=terms_extractor,
+                q_out=q_out, q_err=q_err,
+                max_workers=5),        
         'default':
             ThrottledFetcher(
                 parser=PageParser(save_page=save_page),

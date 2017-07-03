@@ -26,6 +26,7 @@ def rstrip_lines(lines):
 def skip_blanks(lines):
     return (line for line in lines if line)
 
-def iter_urls_from_file(lines):
+def iter_good_lines(lines):
+    """Iterate over rstripped lines with skipped empty and comment lines."""
     return skip_blanks(rstrip_lines(skip_comments(lines)))
 

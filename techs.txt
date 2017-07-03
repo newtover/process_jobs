@@ -12,5 +12,15 @@ Puppet
 Chef
 New Relic
 Nagios
-
+HTML5
+JavaScript
+Node.js
+Grunt
+Gulp
+webpack
+C#
+.NET Framework
+C++
+QUnit
+Mocha
 

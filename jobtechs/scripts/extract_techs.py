@@ -153,6 +153,9 @@ class TechsExtractionRunner:
                                   'of which resulted in an error. The error message is dumped after the url.'))
         parser.add_argument('--log-file', type=argparse.FileType('a'), default='extract_techs.log',
                             help='A file where we write logs to')
+        parser.add_argument('--save-pages-to',
+                            help=('Save copies of the html into the specified directory. '
+                                  'By default html-files are not saved.'))
         args = parser.parse_args()
         if not args.techs_file.exists():
             parser.error('The file with techs {} does not exist. Use --techs-file option'.format(args.techs_file.as_posix()))
@@ -163,6 +166,10 @@ class TechsExtractionRunner:
         except IOError as err:
             parser.error('Can not open {} for writing.'.format(args.errors_path.as_posix()))
 
+        if args.save_pages_to:
+            save_pages_to = pathlib.Path(args.save_pages_to)
+            save_pages_to.mkdir(parents=True, exist_ok=True)
+
         logging.basicConfig(level=logging.INFO, stream=args.log_file)
 
         start = time.time()
@@ -170,7 +177,7 @@ class TechsExtractionRunner:
         runner = TechsExtractionRunner(
             terms_path=args.techs_file.as_posix(),
             errors_path=args.errors_file.as_posix(),
-            save_pages=False)
+            save_pages=args.save_pages_to)
 
         for file_ in args.infile:
             runner.run(file_)

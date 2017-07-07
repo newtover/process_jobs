@@ -5,14 +5,16 @@ The script requires a file with techs we are searching for, the file is specifie
 The urls that led to exceptions are written to a separate file, configured by --errors-file.
 """
 
+import logging
+import multiprocessing as mp
+import pathlib
+import random
+import sys
 import time
 import threading
-import sys
-import random
-import requests
-import multiprocessing as mp
 from urllib.parse import urlparse
-import logging
+
+import requests
 
 from jobtechs.common import DEFAULT_HEADERS, iter_good_lines
 from jobtechs.fetcher import ThrottledFetcher
@@ -71,7 +73,7 @@ def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
 def main2():
     import argparse
     parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
-    parser.add_argument('--techs-file', default='techs.txt',
+    parser.add_argument('--techs-file', type=pathlib.Path, default='techs.txt',
                         help='A file where the searched techs are listed: each tech on a separate line.')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
                         help='A file with a list of urls. Each url is supposed to contain a job description.')
@@ -81,13 +83,15 @@ def main2():
     parser.add_argument('--log-file', type=argparse.FileType('a'), default='extract_techs.log',
                         help='A file where we write logs to')
     args = parser.parse_args()
+    if not args.techs_file.exists():
+        parser.error('The file with techs {} does not exist. Use --techs-file option'.format(args.techs_file.as_posix()))
 
     logging.basicConfig(level=logging.INFO, stream=args.log_file)
 
     start = time.time()
     q_out = mp.Queue()
     q_err = mp.Queue()
-    fetchers = init_fetchers(q_out, q_err, save_page=False, terms_path=args.techs_file)
+    fetchers = init_fetchers(q_out, q_err, save_page=False, terms_path=args.techs_file.as_posix())
     default_fetcher = fetchers['default']
     for fetcher in fetchers.values():
         fetcher.start()
@@ -125,7 +129,7 @@ def main2():
     end = time.time()
     q_out.put(None)
     q_err.put(None)
-    G_LOG.info('took {:0.3f}'.format(end-start))    
+    G_LOG.info('The execution of the script took {:0.3f}.'.format(end-start))
 
 
 if __name__ == '__main__':

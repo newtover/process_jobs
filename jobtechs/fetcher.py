@@ -69,6 +69,13 @@ class ThrottledFetcher(mp.Process):
                 self.q_err.put((url, error))
             else:
                 self.q_out.put(result)
+
+        # we should probably gracefully shutdown: for that we need to pass a message
+        # to the parent process stating the reason.
+        except requests.ConnectionError as err:
+            G_LOG.error('requests.ConnectionError: Failed to establish a new connection to %s.',  url)
+            self.q_err.put((url, 'requests.ConnectionError: Failed to establish a new connection.'))
+
         # we do not try to process any exceptions here. We just log them into q_err and continue
         except Exception as err:
             G_LOG.exception('Uncaught exception on processing url={} | {}'.format(url, str(err)))

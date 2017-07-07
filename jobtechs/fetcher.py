@@ -46,6 +46,7 @@ class ThrottledFetcher(mp.Process):
             yield url
 
     def _process_url(self, url):
+        """Request the url, parse its request and put into q_out. Report an error to q_err otherwise."""
         thread_name = threading.current_thread().name
         if self.min_period:
             while True:

@@ -1,7 +1,8 @@
 """A script to generate a list of products we are interested in found in job descriptions.
 
-The script takes a list of urls in stdin and returns a |-separated output for each url.
-The urls that led to exceptions are writte to a separate errors.txt file
+It takes a list of urls from infile (stdin by default) and returns a |-separated output for each url.
+The script requires a file with techs we are searching for, the file is specified by --techs-file option.
+The urls that led to exceptions are written to a separate file, configured by --errors-file.
 """
 
 import time
@@ -70,12 +71,23 @@ def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
 def main2():
     import argparse
     parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
+    parser.add_argument('--techs-file', default='techs.txt',
+                        help='A file where the searched techs are listed: each tech on a separate line.')
+    parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
+                        help='A file with a list of urls. Each url is supposed to contain a job description.')
+    parser.add_argument('--errors-file', type=argparse.FileType('w'), default='failed_urls.txt',
+                        help=('A tab-separated file to which we are going to dump urls requesting or parsing '
+                              'of which resulted in an error. The error message is dumped after the url.'))
+    parser.add_argument('--log-file', type=argparse.FileType('a'), default='extract_techs.log',
+                        help='A file where we write logs to')
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, stream=args.log_file)
 
     start = time.time()
     q_out = mp.Queue()
     q_err = mp.Queue()
-    fetchers = init_fetchers(q_out, q_err, save_page=False)
+    fetchers = init_fetchers(q_out, q_err, save_page=False, terms_path=args.techs_file)
     default_fetcher = fetchers['default']
     for fetcher in fetchers.values():
         fetcher.start()
@@ -87,23 +99,22 @@ def main2():
                 break
             print(result)
 
-    def write_errors(q_err):
-        with open('errors.txt', 'w') as f1:
-            while True:
-                result = q_err.get()
-                if not result:
-                    break
-                print(*result, sep='\t', file=f1)
+    def write_errors(q_err, errors_file):
+        while True:
+            result = q_err.get()
+            if not result:
+                break
+            print(*result, sep='\t', file=errors_file)
 
     
     writer1 = threading.Thread(target=write_results, args=(q_out,))
-    writer2 = threading.Thread(target=write_errors, args=(q_err,))
+    writer2 = threading.Thread(target=write_errors, args=(q_err, args.errors_file))
     writer1.start()
     writer2.start()
 
 
     #for url in URLS:
-    for url in iter_good_lines(sys.stdin):
+    for url in iter_good_lines(args.infile):
        urlp = urlparse(url)
        fetcher = fetchers.get(urlp.netloc, default_fetcher)       
        fetcher.q_in.put(url)
@@ -118,8 +129,4 @@ def main2():
 
 
 if __name__ == '__main__':
-    import sys
-    #logging.basicConfig(level=logging.ERROR, stream=sys.stderr)   
-    logging.basicConfig(filename='log.txt')   
-    #main1()
     main2()

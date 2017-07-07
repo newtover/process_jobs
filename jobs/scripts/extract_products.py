@@ -1,3 +1,9 @@
+"""A script to generate a list of products we are interested in found in job descriptions.
+
+The script takes a list of urls in stdin and returns a |-separated output for each url.
+The urls that led to exceptions are writte to a separate errors.txt file
+"""
+
 import time
 import threading
 import sys
@@ -61,15 +67,9 @@ def init_fetchers(q_out, q_err, save_page=False, terms_path='techs.txt'):
     }
     return fetchers
 
-DESCRIPTION = """A script to generate a list of products we are interested in found in job descriptions.
-
-The script takes a list of urls in stdin and returns a |-separated output for each url.
-The urls that led to exceptions are writte to a separate errors.txt file 
-"""
-
 def main2():
     import argparse
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
     args = parser.parse_args()
 
     start = time.time()

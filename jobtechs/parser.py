@@ -5,7 +5,7 @@ import re
 from urllib.parse import urlparse, parse_qs
 from hashlib import sha1
 
-from jobs.common import iter_good_lines
+from jobtechs.common import iter_good_lines
 
 G_LOG = logging.getLogger(__name__)
 

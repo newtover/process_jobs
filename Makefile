@@ -1,7 +1,7 @@
 empty:
 	#
 main:
-	python3 -m jobs.scripts.extract_products < job_urls.txt
+	python3 -m jobtechs.scripts.extract_techs < job_urls.txt
 test:
-	python3 -m unittest discover jobs.tests
+	python3 -m unittest discover jobtechs.tests
 

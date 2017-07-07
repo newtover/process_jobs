@@ -14,9 +14,9 @@ import multiprocessing as mp
 from urllib.parse import urlparse
 import logging
 
-from jobs.common import DEFAULT_HEADERS, iter_good_lines
-from jobs.fetcher import ThrottledFetcher
-from jobs.parser import PageParser, IndeedParser, TermsExtractor, NewtonSoftwareParser, GreenHouseParser
+from jobtechs.common import DEFAULT_HEADERS, iter_good_lines
+from jobtechs.fetcher import ThrottledFetcher
+from jobtechs.parser import PageParser, IndeedParser, TermsExtractor, NewtonSoftwareParser, GreenHouseParser
 
 G_LOG = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ import requests
 import threading
 import time
 
-from jobs.common import DEFAULT_HEADERS
+from jobtechs.common import DEFAULT_HEADERS
 
 G_LOG = logging.getLogger(__name__)
 

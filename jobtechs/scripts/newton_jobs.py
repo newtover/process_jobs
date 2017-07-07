@@ -5,7 +5,7 @@ import lxml.html as ET
 import re
 import requests
 
-from jobs.common import DEFAULT_HEADERS, dump_html
+from jobtechs.common import DEFAULT_HEADERS, dump_html
 
 G_LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

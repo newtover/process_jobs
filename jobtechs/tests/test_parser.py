@@ -1,5 +1,5 @@
 from unittest import TestCase
-from jobs.parser import iter_n_grams
+from jobtechs.parser import iter_n_grams
 
 class TestIterNGrams(TestCase):
     def test_unigrams(self):

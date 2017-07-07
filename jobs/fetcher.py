@@ -11,17 +11,22 @@ from jobs.common import DEFAULT_HEADERS
 G_LOG = logging.getLogger(__name__)
 
 class ThrottledFetcher(mp.Process):
-    def __init__(self, parser, terms_extractor, q_in=None, q_out=None, q_err=None, name=None, max_workers=None, max_rps=3):
+    """The class represents a fetcher which can be configured to limit its rps rate.
+
+    It is a demonic process, so that the main process would not wait for it after it exits. 
+    Some processes shoul populate its q_in and then the main process should join its q_in.
+    It is assumed that the fetcher is the only consumer of its q_in."""
+
+    def __init__(self, parser, terms_extractor, q_out=None, q_err=None, name=None, max_workers=None, max_rps=3):
         super().__init__(name=None)
-        if not q_in:
-            q_in = mp.JoinableQueue()
         if not q_out:
             q_out = mp.Queue()
         if not q_err:
             q_err = mp.Queue()
+        self.daemon = True
         self.parser = parser
         self.terms_extractor = terms_extractor
-        self.q_in = q_in
+        self.q_in = mp.JoinableQueue()
         self.q_out = q_out
         self.q_err = q_err
         self.max_workers = max_workers

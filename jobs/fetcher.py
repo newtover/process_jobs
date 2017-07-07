@@ -14,7 +14,8 @@ class ThrottledFetcher(mp.Process):
     """The class represents a fetcher which can be configured to limit its rps rate.
 
     It is a demonic process, so that the main process would not wait for it after it exits. 
-    Some processes shoul populate its q_in and then the main process should join its q_in.
+    Some processes should populate its q_in and then the main process should join its q_in.
+    A None value in q_in marks the end of the processing.
     It is assumed that the fetcher is the only consumer of its q_in."""
 
     def __init__(self, parser, terms_extractor, q_out=None, q_err=None, name=None, max_workers=None, max_rps=3):
@@ -35,6 +36,8 @@ class ThrottledFetcher(mp.Process):
         self.min_period = 1./max_rps if max_rps > 0 else 0
 
     def _iter_q_in(self):
+        # it is assumed that the fetcher is the only consumer of the q_in
+        # None value stops processing
         while True:
             url = self.q_in.get()
             if url is None:
@@ -64,7 +67,8 @@ class ThrottledFetcher(mp.Process):
                 G_LOG.error('parsing failed url={} | {}'.format(url, error))
                 self.q_err.put((url, error))
             else:
-                self.q_out.put(result)            
+                self.q_out.put(result)
+        # we do not try to process any exceptions here. We just log them into q_err and continue
         except Exception as err:
             G_LOG.exception('Uncaught exception on processing url={} | {}'.format(url, str(err)))
             self.q_err.put((url, str(err)))
@@ -73,8 +77,13 @@ class ThrottledFetcher(mp.Process):
         return True
 
     def run(self):
+        """The method starts max_workers threads and starts processing urls from the q_in.
+
+        Thre results are put into q_out, the url requesting or parsing of which 
+        resulted in an error are put into q_err.
+        """
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             results = executor.map(self._process_url, self._iter_q_in())
             for res in results:
-                pass       
-                        
+                pass
+

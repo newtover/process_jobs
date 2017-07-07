@@ -33,48 +33,122 @@ URLS = [
 
 
 class TechsExtractionRunner:
-    def __init__(self, save_pages=False):
+    def __init__(self, terms_path='techs.txt', errors_path='failed_urls.txt', save_pages=False):
         self.save_pages = save_pages
+        self.terms_path = terms_path
+        self.errors_path = errors_path
+        self._q_out = self._q_err = None
+        self._init_queues()
+        self._fetchers = {}
+        self._init_fetchers()
+        self._writers = []
+        self._init_writers()
 
-    def init_fetchers(self, q_out, q_err, terms_path='techs.txt'):
-        terms_extractor = TermsExtractor(terms_path)
-        fetchers = {
+    def make_terms_extractor(self, terms_path):
+        return TermsExtractor(terms_path)
+
+    def make_queue(self):
+        return mp.Queue()
+
+    def _init_queues(self):
+        self._q_out = self.make_queue()
+        self._q_err = self.make_queue()
+
+    def _init_fetchers(self):
+        terms_extractor = self.make_terms_extractor(self.terms_path)
+        self._fetchers = {
             'www.indeed.com': 
                 ThrottledFetcher(
                     parser=IndeedParser(save_page=self.save_pages),
                     terms_extractor=terms_extractor,
-                    q_out=q_out, q_err=q_err,
+                    q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),
             'newton.newtonsoftware.com':
                 ThrottledFetcher(
                     parser=NewtonSoftwareParser(save_page=self.save_pages),
                     terms_extractor=terms_extractor,
-                    q_out=q_out, q_err=q_err,
+                    q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),
             'boards.greenhouse.io':
                 ThrottledFetcher(
                     parser=GreenHouseParser(save_page=self.save_pages),
                     terms_extractor=terms_extractor,
-                    q_out=q_out, q_err=q_err,
+                    q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),        
             'default':
                 ThrottledFetcher(
                     parser=PageParser(save_page=self.save_pages),
                     terms_extractor=terms_extractor,
-                    q_out=q_out, q_err=q_err,
+                    q_out=self._q_out, q_err=self._q_err,
                     max_workers=5, max_rps=0),
                     
         }
-        return fetchers
+        for fetcher in self._fetchers.values():
+            fetcher.start()
+
+
+    def _write_results(self, q_out):
+        while True:
+            result = q_out.get()
+            if not result:
+                break
+            print(result)
+
+    def _write_errors(self, q_err, errors_path):
+        with open(errors_path, 'w') as errors_file:
+            while True:
+                result = q_err.get()
+                if not result:
+                    break
+                print(*result, sep='\t', file=errors_file)
+
+    def _init_writers(self):
+        self._writers = [
+            threading.Thread(target=self._write_results, args=(self._q_out,)),
+            threading.Thread(target=self._write_errors, args=(self._q_err, self.errors_path)),
+        ]
+
+        for writer in self._writers:
+            writer.start()
+
+    def run(self, infile):
+        """Process urls from the infile.
+
+        The method can be run several times (for several files)."""
+        fetchers = self._fetchers
+        default_fetcher = fetchers['default']
+
+        for url in iter_good_lines(infile):
+           urlp = urlparse(url)
+           fetcher = fetchers.get(urlp.netloc, default_fetcher)
+           fetcher.q_in.put(url)
+
+        for fetcher in fetchers.values():
+            fetcher.q_in.join()
+
+        G_LOG.info('finished processing urls')
+
+    def close(self):
+        """Release resources by sending messages to subprocesses and threads that there is no more urls to process."""
+
+        # signal to fetchers
+        for fetcher in self._fetchers.values():
+            fetcher.q_in.put(None)
+            fetcher.q_in.join()
+
+        # signal to writers
+        self._q_out.put(None)
+        self._q_err.put(None)
+        G_LOG.info('poison pills sent to subprocesses and threads.')
 
     @classmethod
     def main2(cls):
         parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
         parser.add_argument('--techs-file', type=pathlib.Path, default='techs.txt',
                             help='A file where the searched techs are listed: each tech on a separate line.')
-        parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
+        parser.add_argument('infile', nargs='*', type=argparse.FileType('r'), default=[sys.stdin],
                             help='A file with a list of urls. Each url is supposed to contain a job description.')
-        parser.add_argument('--errors-file', type=argparse.FileType('w'), default='failed_urls.txt',
+        parser.add_argument('--errors-file', type=pathlib.Path, default='failed_urls.txt',
                             help=('A tab-separated file to which we are going to dump urls requesting or parsing '
                                   'of which resulted in an error. The error message is dumped after the url.'))
         parser.add_argument('--log-file', type=argparse.FileType('a'), default='extract_techs.log',
@@ -83,52 +157,27 @@ class TechsExtractionRunner:
         if not args.techs_file.exists():
             parser.error('The file with techs {} does not exist. Use --techs-file option'.format(args.techs_file.as_posix()))
 
+        try:
+            with args.errors_file.open('w') as f1:
+                pass
+        except IOError as err:
+            parser.error('Can not open {} for writing.'.format(args.errors_path.as_posix()))
+
         logging.basicConfig(level=logging.INFO, stream=args.log_file)
 
         start = time.time()
 
-        runner = TechsExtractionRunner(save_pages=False)
-        q_out = mp.Queue()
-        q_err = mp.Queue()
+        runner = TechsExtractionRunner(
+            terms_path=args.techs_file.as_posix(),
+            errors_path=args.errors_file.as_posix(),
+            save_pages=False)
 
-        fetchers = runner.init_fetchers(q_out, q_err, terms_path=args.techs_file.as_posix())
-        default_fetcher = fetchers['default']
-        for fetcher in fetchers.values():
-            fetcher.start()
+        for file_ in args.infile:
+            runner.run(file_)
 
-        def write_results(q_out):
-            while True:
-                result = q_out.get()
-                if not result:
-                    break
-                print(result)
+        runner.close()
 
-        def write_errors(q_err, errors_file):
-            while True:
-                result = q_err.get()
-                if not result:
-                    break
-                print(*result, sep='\t', file=errors_file)
-
-        
-        writer1 = threading.Thread(target=write_results, args=(q_out,))
-        writer2 = threading.Thread(target=write_errors, args=(q_err, args.errors_file))
-        writer1.start()
-        writer2.start()
-
-
-        #for url in URLS:
-        for url in iter_good_lines(args.infile):
-           urlp = urlparse(url)
-           fetcher = fetchers.get(urlp.netloc, default_fetcher)       
-           fetcher.q_in.put(url)
-
-        for fetcher in fetchers.values():
-            fetcher.q_in.put(None)
-            fetcher.q_in.join()
         end = time.time()
-        q_out.put(None)
-        q_err.put(None)
         G_LOG.info('The execution of the script took {:0.3f}.'.format(end-start))
 
 

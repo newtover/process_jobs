@@ -1,6 +1,7 @@
 from collections import deque
 import logging
 import lxml.html as etree
+import pathlib
 import re
 from urllib.parse import urlparse, parse_qs
 from hashlib import sha1
@@ -95,15 +96,18 @@ class Result:
 
 
 class PageParser:
-    def __init__(self, save_page=False):
-        self.save_page = save_page
+    def __init__(self, save_pages_to=None):
+        if save_pages_to:
+            save_pages_to = pathlib.Path(save_pages_to)
+        self.save_pages_to = save_pages_to
 
     def do_save_page(self, url, text, filename=None):
         if not filename:
             filename = '{}.html'.format(hash_url(url))
         G_LOG.info('saving page {} as {}'.format(url, filename))
-        with open(filename, 'w') as f1:
-            print(text, file=f1)
+        if self.save_pages_to:
+            with self.save_pages_to.joinpath(filename).open(mode='w') as f1:
+                print(text, file=f1)
 
     def _extract_company_name(self, url, text, tree):
         # we need a generic way of company name extraction from an arbitrary page
@@ -117,7 +121,7 @@ class PageParser:
        return tree.xpath('string(./body)')
 
     def parse_page(self, url, text, extractor):
-        if self.save_page:
+        if self.save_pages_to:
             self.do_save_page(url, text)
         tree = etree.fromstring(text)
         company = self._extract_company_name(url, text, tree)
@@ -150,7 +154,7 @@ class IndeedParser(PageParser):
         if """rel="alternate" media="handheld" href="/m/viewjob?jk=""" in text:
             qs = parse_qs(urlp.query)
             job = self.parse_job(text, extractor)
-            if self.save_page:
+            if self.save_pages_to:
                 self.do_save_page(url, text, 'indeed.{}.html'.format(qs.get('jk', ['empty'])[0]))
                 
             res = Result(url, job.get('company'), job.get('techs', ''), '')

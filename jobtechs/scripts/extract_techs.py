@@ -33,8 +33,8 @@ URLS = [
 
 
 class TechsExtractionRunner:
-    def __init__(self, terms_path='techs.txt', errors_path='failed_urls.txt', save_pages=False):
-        self.save_pages = save_pages
+    def __init__(self, terms_path='techs.txt', errors_path='failed_urls.txt', save_pages_to=None):
+        self.save_pages_to = save_pages_to
         self.terms_path = terms_path
         self.errors_path = errors_path
         self._q_out = self._q_err = None
@@ -59,25 +59,25 @@ class TechsExtractionRunner:
         self._fetchers = {
             'www.indeed.com': 
                 ThrottledFetcher(
-                    parser=IndeedParser(save_page=self.save_pages),
+                    parser=IndeedParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),
             'newton.newtonsoftware.com':
                 ThrottledFetcher(
-                    parser=NewtonSoftwareParser(save_page=self.save_pages),
+                    parser=NewtonSoftwareParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),
             'boards.greenhouse.io':
                 ThrottledFetcher(
-                    parser=GreenHouseParser(save_page=self.save_pages),
+                    parser=GreenHouseParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),        
             'default':
                 ThrottledFetcher(
-                    parser=PageParser(save_page=self.save_pages),
+                    parser=PageParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5, max_rps=0),
@@ -177,7 +177,7 @@ class TechsExtractionRunner:
         runner = TechsExtractionRunner(
             terms_path=args.techs_file.as_posix(),
             errors_path=args.errors_file.as_posix(),
-            save_pages=args.save_pages_to)
+            save_pages_to=args.save_pages_to)
 
         for file_ in args.infile:
             runner.run(file_)

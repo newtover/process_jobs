@@ -305,6 +305,6 @@ class GreenHouseParser(PageParser, AggregatorParser):
 
         client_id = query['for'][0]
 
-        query = {'for': client_id, 'token': job_id}
+        query = [('for', client_id), ('token', job_id)]
 
         return 'https://boards.greenhouse.io/embed/job_app?{}'.format(urlencode(query))

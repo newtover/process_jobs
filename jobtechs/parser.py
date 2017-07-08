@@ -103,7 +103,11 @@ class PageParser:
 
     def do_save_page(self, url, text, filename=None):
         if not filename:
-            filename = '{}.html'.format(hash_url(url))
+            filename = hash_url(url)
+
+        if not filename.endswith('.html'):
+            filename += '.html'
+
         G_LOG.info('saving page {} as {}'.format(url, filename))
         if self.save_pages_to:
             with self.save_pages_to.joinpath(filename).open(mode='w') as f1:
@@ -126,8 +130,6 @@ class PageParser:
         It is a template method, allowing to override methods for extracting terms,
         company name and site in inheritants.
         """
-        if self.save_pages_to:
-            self.do_save_page(url, text)
         if tree is None:
             tree = etree.fromstring(text)
 
@@ -149,6 +151,9 @@ class PageParser:
         """Default implementation of page parsing.
 
         It assumes we are parsing a job description and delegating parsing to parse_job_page."""
+        if self.save_pages_to:
+            self.do_save_page(url, text)
+
         tree = etree.fromstring(text)
         return self.parse_job_page(url, text, extractor, tree)
 
@@ -196,6 +201,25 @@ class NewtonSoftwareParser(PageParser):
 
 
 class GreenHouseParser(PageParser):
+    """Specific parser for greenhouse.io.
+
+    The greenhouse.io job descriptions are injected into the client companies website.
+    Here is the typical url of a job description:
+    https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply
+
+    for - is the short company id
+    token - is the vacancy unique id
+    b - contains a reference to the job list on the site of the client company.
+
+    The list is as well taken from the greenhouse.io site:
+    https://boards.greenhouse.io/embed/job_board?for=pantheon
+
+    The job description page contains the company name and the link to the site of the company.
+    It has a marker, a meta tag of the format:
+
+    <meta property="og:url" content="https://boards.greenhouse.io/pantheon/jobs/619056"></meta>
+
+    """
     def _extract_company_site(self, url, text, tree):
         jobs_url = tree.xpath('string(.//div[@id="header"]/a/@href)')
         if jobs_url:
@@ -212,3 +236,17 @@ class GreenHouseParser(PageParser):
 
     def _exract_description(self, url, text, tree):
         return tree.xpath('string(.//div[@id="content"])')
+
+    def parse_page(self, url, text, extractor):
+        tree = etree.fromstring(text)
+
+        # check if the page is a job description
+        # it should contain a link to the job description in a html/head/meta
+        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
+        match = re.match(r'https://boards.greenhouse.io/([^/]+)/jobs/(\d+)$', permanent_url)
+        if match:
+            self.do_save_page(url, text, 'greenhouse.io.{}.{}'.format(match.group(1), match.group(2)))
+            return self.parse_job_page(url, text, extractor, tree)
+        else:
+            self.do_save_page(url, text, 'greenhouse.io.{}'.format(hash_url(url)))
+            return None, 'The url is not a job description/vacancy.'

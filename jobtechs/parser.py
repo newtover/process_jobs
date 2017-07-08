@@ -101,16 +101,18 @@ class PageParser:
             save_pages_to = pathlib.Path(save_pages_to)
         self.save_pages_to = save_pages_to
 
-    def do_save_page(self, url, text, filename=None):
-        if not filename:
-            filename = hash_url(url)
+    def do_save_page(self, url, text, page_name=None):
+        if not page_name:
+            page_name = hash_url(url)
+        urlp = urlparse(url)
+        prefix = urlp.netloc.replace(':', '_')
+        suffix = '' if page_name.endswith('.html') else '.html'
 
-        if not filename.endswith('.html'):
-            filename += '.html'
+        page_name = prefix + '.' + page_name + suffix
 
-        G_LOG.info('saving page {} as {}'.format(url, filename))
+        G_LOG.info('saving page {} as {}'.format(url, page_name))
         if self.save_pages_to:
-            with self.save_pages_to.joinpath(filename).open(mode='w') as f1:
+            with self.save_pages_to.joinpath(page_name).open(mode='w') as f1:
                 print(text, file=f1)
 
     def _extract_company_name(self, url, text, tree):
@@ -245,8 +247,8 @@ class GreenHouseParser(PageParser):
         permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
         match = re.match(r'https://boards.greenhouse.io/([^/]+)/jobs/(\d+)$', permanent_url)
         if match:
-            self.do_save_page(url, text, 'greenhouse.io.{}.{}'.format(match.group(1), match.group(2)))
+            self.do_save_page(url, text, '{}.{}'.format(match.group(1), match.group(2)))
             return self.parse_job_page(url, text, extractor, tree)
         else:
-            self.do_save_page(url, text, 'greenhouse.io.{}'.format(hash_url(url)))
+            self.do_save_page(url, text)
             return None, 'The url is not a job description/vacancy.'

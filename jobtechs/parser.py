@@ -101,7 +101,10 @@ class PageParser:
             save_pages_to = pathlib.Path(save_pages_to)
         self.save_pages_to = save_pages_to
 
-    def do_save_page(self, url, text, page_name=None):
+    def save_if_needed(self, url, text, page_name=None):
+        """Save page contents if bool(self.save_pages_to) is True"""
+        if not self.save_pages_to:
+            return
         if not page_name:
             page_name = hash_url(url)
         urlp = urlparse(url)
@@ -111,9 +114,8 @@ class PageParser:
         page_name = prefix + '.' + page_name + suffix
 
         G_LOG.info('saving page {} as {}'.format(url, page_name))
-        if self.save_pages_to:
-            with self.save_pages_to.joinpath(page_name).open(mode='w') as f1:
-                print(text, file=f1)
+        with self.save_pages_to.joinpath(page_name).open(mode='w') as f1:
+            print(text, file=f1)
 
     def _extract_company_name(self, url, text, tree):
         # we need a generic way of company name extraction from an arbitrary page
@@ -153,8 +155,7 @@ class PageParser:
         """Default implementation of page parsing.
 
         It assumes we are parsing a job description and delegating parsing to parse_job_page."""
-        if self.save_pages_to:
-            self.do_save_page(url, text)
+        self.save_if_needed(url, text)
 
         tree = etree.fromstring(text)
         return self.parse_job_page(url, text, extractor, tree)
@@ -177,8 +178,7 @@ class IndeedParser(PageParser):
         if """rel="alternate" media="handheld" href="/m/viewjob?jk=""" in text:
             qs = parse_qs(urlp.query)
             job = self.parse_job(text, extractor)
-            if self.save_pages_to:
-                self.do_save_page(url, text, 'indeed.{}.html'.format(qs.get('jk', ['empty'])[0]))
+            self.save_if_needed(url, text, 'indeed.{}.html'.format(qs.get('jk', ['empty'])[0]))
                 
             res = Result(url, job.get('company'), job.get('techs', ''), '')
             return res, None
@@ -247,8 +247,8 @@ class GreenHouseParser(PageParser):
         permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
         match = re.match(r'https://boards.greenhouse.io/([^/]+)/jobs/(\d+)$', permanent_url)
         if match:
-            self.do_save_page(url, text, '{}.{}'.format(match.group(1), match.group(2)))
+            self.save_if_needed(url, text, '{}.{}'.format(match.group(1), match.group(2)))
             return self.parse_job_page(url, text, extractor, tree)
         else:
-            self.do_save_page(url, text)
+            self.save_if_needed(url, text)
             return None, 'The url is not a job description/vacancy.'

@@ -120,21 +120,37 @@ class PageParser:
     def _extract_description(self, url, text, tree):
        return tree.xpath('string(./body)')
 
-    def parse_page(self, url, text, extractor):
+    def parse_job_page(self, url, text, extractor, tree=None):
+        """A generic method for parsing pages containing a job description.
+
+        It is a template method, allowing to override methods for extracting terms,
+        company name and site in inheritants.
+        """
         if self.save_pages_to:
             self.do_save_page(url, text)
-        tree = etree.fromstring(text)
+        if tree is None:
+            tree = etree.fromstring(text)
+
         company = self._extract_company_name(url, text, tree)
         site = self._extract_company_site(url, text, tree)
+
         for elem in tree.xpath('.//script'):
             elem.drop_tree()
         for elem in tree.xpath('.//style'):
             elem.drop_tree()
+
         description = self._extract_description(url, text, tree)
         ## print(description)
         terms = extractor.extract_terms(description)
         terms = extractor.terms_to_list(terms)
         return Result(url, company, terms, site), None
+
+    def parse_page(self, url, text, extractor):
+        """Default implementation of page parsing.
+
+        It assumes we are parsing a job description and delegating parsing to parse_job_page."""
+        tree = etree.fromstring(text)
+        return self.parse_job_page(url, text, extractor, tree)
 
 
 class IndeedParser(PageParser):

@@ -74,15 +74,18 @@ class TechsExtractionRunner:
                     parser=GreenHouseParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5),        
-            'default':
-                ThrottledFetcher(
-                    parser=PageParser(save_pages_to=self.save_pages_to),
-                    terms_extractor=terms_extractor,
-                    q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5, max_rps=0),
-                    
+                    max_workers=5),
         }
+        generic_parser = PageParser(
+            save_pages_to=self.save_pages_to,
+            agg_parsers=[fetcher.parser for fetcher in self._fetchers.values()]
+        )
+        self._fetchers['default'] = ThrottledFetcher(
+                                        parser=generic_parser,
+                                        terms_extractor=terms_extractor,
+                                        q_out=self._q_out, q_err=self._q_err,
+                                        max_workers=5, max_rps=0)
+
         for fetcher in self._fetchers.values():
             fetcher.start()
 

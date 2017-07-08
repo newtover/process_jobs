@@ -3,7 +3,7 @@ import logging
 import lxml.html as etree
 import pathlib
 import re
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode
 from hashlib import sha1
 
 from jobtechs.common import iter_good_lines
@@ -96,10 +96,17 @@ class Result:
 
 
 class PageParser:
-    def __init__(self, save_pages_to=None):
+    """A generic page parser. It may use parsers for vacancy aggregators (agg_parsers)
+    to look for common markers of injected vacancies.
+
+    save_pages_to parameter turns on saving of requested pages into the specified directory.
+
+    """
+    def __init__(self, save_pages_to=None, agg_parsers=None):
         if save_pages_to:
             save_pages_to = pathlib.Path(save_pages_to)
         self.save_pages_to = save_pages_to
+        self._agg_parsers = [] if agg_parsers is None else agg_parsers
 
     def save_if_needed(self, url, text, page_name=None):
         """Save page contents if bool(self.save_pages_to) is True"""
@@ -158,10 +165,25 @@ class PageParser:
         self.save_if_needed(url, text)
 
         tree = etree.fromstring(text)
+
+        for parser in self._agg_parsers:
+            new_url = parser.check_for_job_url(url, text, tree)
+            if new_url:
+                return None, 'External job description found:\t' + new_url
+
         return self.parse_job_page(url, text, extractor, tree)
 
 
-class IndeedParser(PageParser):
+class AggregatorParser:
+    def check_for_job_url(self, url, text, tree=None):
+        """Check whether the page contains a link to an external job description.
+
+        If the link is found, it is returned. None otherwise.
+        """
+        return None
+
+
+class IndeedParser(PageParser, AggregatorParser):
     # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
     def parse_job(self, text, extractor):
         tree = etree.fromstring(text)
@@ -186,7 +208,7 @@ class IndeedParser(PageParser):
             return super().parse_page(url, text, extractor)
 
 
-class NewtonSoftwareParser(PageParser):
+class NewtonSoftwareParser(PageParser, AggregatorParser):
     def _extract_company_name(self, url, text, tree):
         # lxml lowercases the attribute names!
         return tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
@@ -202,7 +224,7 @@ class NewtonSoftwareParser(PageParser):
         return tree.xpath('string(.//td[@id="gnewtonJobDescriptionText"])')
 
 
-class GreenHouseParser(PageParser):
+class GreenHouseParser(PageParser, AggregatorParser):
     """Specific parser for greenhouse.io.
 
     The greenhouse.io job descriptions are injected into the client companies website.
@@ -252,3 +274,37 @@ class GreenHouseParser(PageParser):
         else:
             self.save_if_needed(url, text)
             return None, 'The url is not a job description/vacancy.'
+
+    def check_for_job_url(self, url, text, tree=None):
+        """Check whether the page contains a link to an external job description.
+
+        If the link is found, it is returned. None otherwise.
+        """
+        if tree is None:
+            tree = etree.fromstring(text)
+
+        # the url should contain a numeric `gh_jid` parameter and there should be 
+        # a script tag with @src to boards.greenhouse.io
+        query = parse_qs(urlparse(url).query)
+        if not 'gh_jid' in query:
+            return
+
+        job_id = query['gh_jid'][0]
+
+        # looking for [https:]//boards.greenhouse.io/embed/job_board/js?for=pantheon
+        # src might lack the http(s) prefix using relative urls
+        marker = '//boards.greenhouse.io/embed/job_board/js'
+        marker = tree.xpath('string(.//script[contains(@src, "{}")]/@src)'.format(marker))
+        if not marker:
+            return
+
+        query = parse_qs(urlparse(marker).query)
+
+        if not 'for' in query:
+            return
+
+        client_id = query['for'][0]
+
+        query = {'for': client_id, 'token': job_id}
+
+        return 'https://boards.greenhouse.io/embed/job_app?{}'.format(urlencode(query))

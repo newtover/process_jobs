@@ -1,38 +1,30 @@
 """A script to generate a list of products we are interested in found in job descriptions.
 
-It takes a list of urls from infile (stdin by default) and returns a |-separated output for each url.
-The script requires a file with techs we are searching for, the file is specified by --techs-file option.
-The urls that led to exceptions are written to a separate file, configured by --errors-file.
+It takes a list of urls from infile (stdin by default) and returns a |-separated output
+for each url. The script requires a file with techs we are searching for, the file is
+specified by --techs-file option. The urls that led to exceptions are written to a separate
+file, configured by --errors-file.
 """
 
 import argparse
 import logging
 import multiprocessing as mp
 import pathlib
-import random
 import sys
 import time
 import threading
 from urllib.parse import urlparse
 
-import requests
-
-from jobtechs.common import DEFAULT_HEADERS, iter_good_lines
+from jobtechs.common import iter_good_lines
 from jobtechs.fetcher import ThrottledFetcher
 from jobtechs.parser import netloc_to_parser_map, TermsExtractor, PageParser
 
 G_LOG = logging.getLogger(__name__)
 
-URLS = [
-'https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed',
-'https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply',
-'https://www.indeed.com/viewjob?jk=8539193e3a45a062&q=sales+operations&l=San+Francisco%2C+CA&tk=1aevt39cab9rbe1v&from=web',
-'http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR7jOVeKpHgZBD8uj-JYSLVQQdOzuvtcRZqR1VUgvQgUCLrlSAZIc8VspZ09RpfJLmZ1g',
-'http://www.indeed.com/cmp/The-Resource-Corner,-LLC/jobs/Bookkeeper-ce09ccbdef05dafc?sjdu=QwrRXKrqZ3CNX5W-O9jEvZYUjcFz8G6VtThA0LDUaBBKkXOI7HyNUFAgnmvj10geaet8H1fzoalk9SEj0AgHMA',
-]
-
-
 class TechsExtractionRunner:
+    """Class containing the functionality of running the techs extraction process."""
+    # pylint: disable=no-self-use
+
     def __init__(self, terms_path='techs.txt', errors_path='failed_urls.txt', save_pages_to=None):
         self.save_pages_to = save_pages_to
         self.terms_path = terms_path
@@ -45,9 +37,11 @@ class TechsExtractionRunner:
         self._init_writers()
 
     def make_terms_extractor(self, terms_path):
+        """A factory method for instantiating a terms extractor."""
         return TermsExtractor(terms_path)
 
     def make_queue(self):
+        """A factory method for the queue."""
         return mp.Queue()
 
     def _init_queues(self):
@@ -58,7 +52,8 @@ class TechsExtractionRunner:
         terms_extractor = self.make_terms_extractor(self.terms_path)
         # add specific parsers for job aggregators
         self._fetchers = {
-            netloc: ThrottledFetcher(
+            netloc:
+                ThrottledFetcher(
                     parser=parser_cls(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
@@ -70,11 +65,12 @@ class TechsExtractionRunner:
             save_pages_to=self.save_pages_to,
             agg_parsers=[fetcher.parser for fetcher in self._fetchers.values()]
         )
-        self._fetchers['default'] = ThrottledFetcher(
-                                        parser=generic_parser,
-                                        terms_extractor=terms_extractor,
-                                        q_out=self._q_out, q_err=self._q_err,
-                                        max_workers=5, max_rps=0)
+        self._fetchers['default'] = \
+            ThrottledFetcher(
+                parser=generic_parser,
+                terms_extractor=terms_extractor,
+                q_out=self._q_out, q_err=self._q_err,
+                max_workers=5, max_rps=0)
 
         for fetcher in self._fetchers.values():
             fetcher.start()
@@ -111,9 +107,9 @@ class TechsExtractionRunner:
         default_fetcher = fetchers['default']
 
         for url in iter_good_lines(infile):
-           urlp = urlparse(url)
-           fetcher = fetchers.get(urlp.netloc, default_fetcher)
-           fetcher.q_in.put(url)
+            urlp = urlparse(url)
+            fetcher = fetchers.get(urlp.netloc, default_fetcher)
+            fetcher.q_in.put(url)
 
         for fetcher in fetchers.values():
             fetcher.q_in.join()
@@ -121,8 +117,9 @@ class TechsExtractionRunner:
         G_LOG.info('finished processing urls')
 
     def close(self):
-        """Release resources by sending messages to subprocesses and threads that there is no more urls to process."""
-
+        """Release resources by sending messages to subprocesses and threads
+        that there is no more urls to process.
+        """
         # signal to fetchers
         for fetcher in self._fetchers.values():
             fetcher.q_in.put(None)
@@ -135,27 +132,37 @@ class TechsExtractionRunner:
 
     @classmethod
     def main2(cls):
+        """Run the functionality of the script."""
+
         parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
-        parser.add_argument('--techs-file', type=pathlib.Path, default='techs.txt',
-                            help='A file where the searched techs are listed: each tech on a separate line.')
-        parser.add_argument('infile', nargs='*', type=argparse.FileType('r'), default=[sys.stdin],
-                            help='A file with a list of urls. Each url is supposed to contain a job description.')
-        parser.add_argument('--errors-file', type=pathlib.Path, default='failed_urls.txt',
-                            help=('A tab-separated file to which we are going to dump urls requesting or parsing '
-                                  'of which resulted in an error. The error message is dumped after the url.'))
-        parser.add_argument('--log-file', type=argparse.FileType('a'), default='extract_techs.log',
-                            help='A file where we write logs to')
-        parser.add_argument('--save-pages-to',
-                            help=('Save copies of the html into the specified directory. '
-                                  'By default html-files are not saved.'))
+        parser.add_argument(
+            '--techs-file', type=pathlib.Path, default='techs.txt',
+            help='A file where the searched techs are listed: each tech on a separate line.')
+        parser.add_argument(
+            'infile', nargs='*', type=argparse.FileType('r'), default=[sys.stdin],
+            help='A file with a list of urls. Each url is supposed to contain a job description.')
+        parser.add_argument(
+            '--errors-file', type=pathlib.Path, default='failed_urls.txt',
+            help=('A tab-separated file to which we are going to dump urls requesting or parsing '
+                  'of which resulted in an error. The error message is dumped after the url.'))
+        parser.add_argument(
+            '--log-file', type=argparse.FileType('a'), default='extract_techs.log',
+            help='A file where we write logs to')
+        parser.add_argument(
+            '--save-pages-to',
+            help=('Save copies of the html into the specified directory. '
+                  'By default html-files are not saved.'))
+
         args = parser.parse_args()
         if not args.techs_file.exists():
-            parser.error('The file with techs {} does not exist. Use --techs-file option'.format(args.techs_file.as_posix()))
+            parser.error(
+                ('The file with techs {} does not exist. '
+                 'Use --techs-file option').format(args.techs_file.as_posix()))
 
         try:
-            with args.errors_file.open('w') as f1:
+            with args.errors_file.open('w'):
                 pass
-        except IOError as err:
+        except IOError:
             parser.error('Can not open {} for writing.'.format(args.errors_path.as_posix()))
 
         if args.save_pages_to:

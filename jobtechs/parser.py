@@ -4,7 +4,7 @@ import lxml.html as etree
 import pathlib
 import re
 import sys
-from urllib.parse import urlparse, parse_qs, urlencode
+from urllib.parse import urlparse, parse_qs, urlencode, unquote
 from hashlib import sha1
 
 from jobtechs.common import iter_good_lines
@@ -434,6 +434,27 @@ class JobviteParser(AggregatorParser, PageParser):
 
     def _extract_company_name(self, url, text, tree):
         chunk = tree.xpath('string(.//div[@class="jv-logo"]/a/img/@alt)')
+        return chunk
+
+   
+class DiceParser(AggregatorParser, PageParser):
+    netloc = "www.dice.com"
+
+    def extract_job_id(self, url, text, tree):
+        # <meta name="jobId" content="SM1-13765926">
+        # <meta name="groupId" content="cybercod">
+
+        company_id = tree.xpath('string(head/meta[@name="groupId"]/@content)').strip()
+        job_id = tree.xpath('string(head/meta[@name="jobId"]/@content)').strip()
+        if company_id and job_id:
+            return JobId(company_id, job_id)
+
+    def _extract_company_site(self, url, text, tree):
+        # company site is on another page
+        return ''
+
+    def _extract_company_name(self, url, text, tree):
+        chunk = tree.xpath('string(.//li[@itemprop="hiringOrganization"]//span[@itemprop="name"])')
         return chunk
 
    

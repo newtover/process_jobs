@@ -36,3 +36,6 @@ HIPAA
 PCI-DSS
 GLBA
 SOX
+Word
+Excel
+PowerPoint

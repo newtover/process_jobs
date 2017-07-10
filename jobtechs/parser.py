@@ -194,25 +194,35 @@ class AggregatorParser:
 
         If the link is found, it is returned. None otherwise.
         """
-        return None
+        return
 
-
-class IndeedParser(PageParser, AggregatorParser):
-    # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
-    netloc = "www.indeed.com"
+    def extract_job_id(self, url, text, tree):
+        """Find conpany_id and job_id on the page."""
+        return
 
     def parse_page(self, url, text, extractor):
         tree = etree.fromstring(text)
 
+        # check if the page is a job description
+        job_id = self.extract_job_id(url, text, tree)
+        if job_id:
+            self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
+            return self.parse_job_page(url, text, extractor, tree)
+        else:
+            self.save_if_needed(url, text)
+            return None, 'The url is not a job description/vacancy.'
+
+
+class IndeedParser(AggregatorParser, PageParser):
+    # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
+    netloc = "www.indeed.com"
+
+    def extract_job_id(self, url, text, tree):
         alt_url = tree.xpath('string(.//link[@rel="alternate" and @media="handheld"]/@href)')
         if alt_url:
             job_id = re.search(r'[?]jk=(\w+)', alt_url)
             if job_id:
-                self.save_if_needed(url, text, job_id.group(1))
-                return self.parse_job_page(url, text, extractor, tree)
-
-        self.save_if_needed(url, text)
-        return None, 'The url is not a job description/vacancy.'
+                return JobId('', job_id.group(1))
 
     def _extract_company_name(self, url, text, tree):
         # lxml lowercases the attribute names!
@@ -227,8 +237,20 @@ class IndeedParser(PageParser, AggregatorParser):
         return ''
 
 
-class NewtonSoftwareParser(PageParser, AggregatorParser):
+class NewtonSoftwareParser(AggregatorParser, PageParser):
     netloc = "newton.newtonsoftware.com"
+
+    def extract_job_id(self, url, text, tree):
+        urlp = urlparse(url)
+        query = parse_qs(urlp.query)
+        if 'clientId' in query and 'id' in query and tree.xpath('.//table[@id="gnewtonJobDescription"]'):
+            # ids are hex chars
+            client_id = re.match('\w+$', query['clientId'][0])
+            job_id = re.match('\w+$', query['id'][0])
+            if not client_id or not job_id:
+                return
+            return JobId(client_id.group(0), job_id.group(0))
+
     def _extract_company_name(self, url, text, tree):
         # lxml lowercases the attribute names!
         return tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
@@ -242,22 +264,6 @@ class NewtonSoftwareParser(PageParser, AggregatorParser):
 
     def _extract_description(self, url, text, tree):
         return tree.xpath('string(.//td[@id="gnewtonJobDescriptionText"])')
-
-    def parse_page(self, url, text, extractor):
-        tree = etree.fromstring(text)
-        urlp = urlparse(url)
-        query = parse_qs(urlp.query)
-        if 'clientId' in query and 'id' in query and tree.xpath('.//table[@id="gnewtonJobDescription"]'):
-            # ids are hex chars
-            client_id = re.match('\w+$', query['clientId'][0])
-            job_id = re.match('\w+$', query['id'][0])
-            if not client_id or not job_id:
-                return None, 'Ids contain strage characters: {} / {}'.format(
-                    query['clientId'][0], query['id'][0])
-            self.save_if_needed(url, text, '{}.{}'.format(client_id.group(0), job_id.group(0)))
-            return self.parse_job_page(url, text, extractor, tree)
-        else:
-            return None, 'The url is not a job description/vacancy.'
 
     def check_for_job_url(self, url, text, tree=None):
         """Check whether the page contains a link to an external job description.
@@ -294,7 +300,7 @@ class NewtonSoftwareParser(PageParser, AggregatorParser):
         return 'https://newton.newtonsoftware.com/career/JobIntroduction.action?{}'.format(urlencode(query))
 
 
-class GreenHouseParser(PageParser, AggregatorParser):
+class GreenHouseParser(AggregatorParser, PageParser):
     """Specific parser for greenhouse.io.
 
     The greenhouse.io job descriptions are injected into the client companies website.
@@ -315,6 +321,14 @@ class GreenHouseParser(PageParser, AggregatorParser):
 
     """
     netloc = "boards.greenhouse.io"
+
+    def extract_job_id(self, url, text, tree):
+        # example https://boards.greenhouse.io/pantheon/jobs/619056
+        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
+        match = re.match(r'https://boards.greenhouse.io/([^/]+)/jobs/(\d+)$', permanent_url)
+        if match:
+            return JobId(match.group(1), match.group(2))
+
     def _extract_company_site(self, url, text, tree):
         jobs_url = tree.xpath('string(.//div[@id="header"]/a/@href)')
         if jobs_url:
@@ -331,20 +345,6 @@ class GreenHouseParser(PageParser, AggregatorParser):
 
     def _exract_description(self, url, text, tree):
         return tree.xpath('string(.//div[@id="content"])')
-
-    def parse_page(self, url, text, extractor):
-        tree = etree.fromstring(text)
-
-        # check if the page is a job description
-        # it should contain a link to the job description in a html/head/meta
-        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
-        match = re.match(r'https://boards.greenhouse.io/([^/]+)/jobs/(\d+)$', permanent_url)
-        if match:
-            self.save_if_needed(url, text, '{}.{}'.format(match.group(1), match.group(2)))
-            return self.parse_job_page(url, text, extractor, tree)
-        else:
-            self.save_if_needed(url, text)
-            return None, 'The url is not a job description/vacancy.'
 
     def check_for_job_url(self, url, text, tree=None):
         """Check whether the page contains a link to an external job description.
@@ -381,7 +381,7 @@ class GreenHouseParser(PageParser, AggregatorParser):
         return 'https://boards.greenhouse.io/embed/job_app?{}'.format(urlencode(query))
 
 
-class HireBridgeParser(PageParser, AggregatorParser):
+class HireBridgeParser(AggregatorParser, PageParser):
     netloc = 'recruit.hirebridge.com'
 
     def extract_job_id(self, url, text, tree):
@@ -394,18 +394,6 @@ class HireBridgeParser(PageParser, AggregatorParser):
         if 'cid' in query and 'jid' in query:
             return JobId(query['cid'][0], query['jid'][0])
         return
-
-    def parse_page(self, url, text, extractor):
-        tree = etree.fromstring(text)
-
-        # check if the page is a job description
-        job_id = self.extract_job_id(url, text, tree)
-        if job_id:
-            self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
-            return self.parse_job_page(url, text, extractor, tree)
-        else:
-            self.save_if_needed(url, text)
-            return None, 'The url is not a job description/vacancy.'
 
     def _extract_company_name(self, url, text, tree):
         chunk = tree.xpath('string(.//div[@id="logo"]/h1/img/@alt)')
@@ -421,7 +409,7 @@ class HireBridgeParser(PageParser, AggregatorParser):
             return ''
 
 
-class JobviteParser(PageParser, AggregatorParser):
+class JobviteParser(AggregatorParser, PageParser):
     netloc = "jobs.jobvite.com"
 
     def extract_job_id(self, url, text, tree):
@@ -434,18 +422,6 @@ class JobviteParser(PageParser, AggregatorParser):
             else:
                 return
         # else we may try to extract from the page
-
-    def parse_page(self, url, text, extractor):
-        tree = etree.fromstring(text)
-
-        # check if the page is a job description
-        job_id = self.extract_job_id(url, text, tree)
-        if job_id:
-            self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
-            return self.parse_job_page(url, text, extractor, tree)
-        else:
-            self.save_if_needed(url, text)
-            return None, 'The url is not a job description/vacancy.'
 
     def _extract_company_site(self, url, text, tree):
         jobs_url = tree.xpath('.//a/@href')

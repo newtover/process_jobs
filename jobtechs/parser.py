@@ -1,27 +1,41 @@
+"""The module contains page parsers and an implementation of a terms extractor.
+
+"""
+
 from collections import deque, namedtuple
+from hashlib import sha1
 import logging
-import lxml.html as etree
 import pathlib
 import re
 import sys
-from urllib.parse import urlparse, parse_qs, urlencode, unquote
-from hashlib import sha1
+from urllib.parse import urlparse, parse_qs, urlencode
+
+import lxml.html as etree
 
 from jobtechs.common import iter_good_lines
 
 G_LOG = logging.getLogger(__name__)
 
 def hash_url(url):
+    """Hash url to use as a page of a filename"""
     return sha1(url.encode('utf-8')).hexdigest()
 
 def extract_site_url(url):
+    """Extract schema + domain from the url."""
     urlp = urlparse(url)
     return '{}://{}'.format(urlp.scheme, urlp.netloc)
 
 def iter_n_grams(text, max_n):
+    """Iterate over word n-grams extracted from the text.
+
+    On each new word The iterator produces ngrams from 1 to max_n,
+    if the word is separated by a space. If there is a puctuation before
+    the word, we do not produce n-grams, since a punctuation is not
+    supposed to be within a term.
+    """
     if not text:
         return []
-    chunks = re.split('(\W+)', text)
+    chunks = re.split(r'(\W+)', text)
     words = deque(maxlen=max_n)
     words.append(chunks[0])
     yield (chunks[0],)
@@ -38,8 +52,8 @@ def iter_n_grams(text, max_n):
             words.append(word)
             max_n_gram = tuple(words)
             yield max_n_gram
-            for i in range(2, len(max_n_gram)):
-                yield max_n_gram[-i:]
+            for j in range(2, len(max_n_gram)):
+                yield max_n_gram[-j:]
 
 
 class TermsExtractor:
@@ -51,6 +65,7 @@ class TermsExtractor:
     For simplicity we will lowercase all words and slightly normalize
     the text.
     """
+    # pylint: disable=no-self-use
     def __init__(self, terms_filename):
         self.terms_filename = terms_filename
         self._terms = set()
@@ -59,10 +74,11 @@ class TermsExtractor:
         self.reload_terms()
 
     def reload_terms(self):
+        """Reload the terms into the internal state from the terms file."""
         self._terms.clear()
         max_n = 1
-        with open(self.terms_filename) as f1:
-            for line in iter_good_lines(f1):
+        with open(self.terms_filename) as file_:
+            for line in iter_good_lines(file_):
                 term = tuple(line.lower().split())
                 self._terms.add(term)
                 if len(term) > max_n:
@@ -70,6 +86,7 @@ class TermsExtractor:
         self.max_n = max_n
 
     def iter_n_grams(self, text):
+        """Iterate over n-grams parsed from text."""
         return iter_n_grams(text, self.max_n)
 
     def extract_terms(self, text):
@@ -86,6 +103,8 @@ class TermsExtractor:
 
 class Result:
     """Object representing page parsing results."""
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, url, company, techs, site):
         self.url = url
         self.company = company
@@ -93,7 +112,7 @@ class Result:
         self.site = site
 
     def __str__(self):
-        return '{} | {} | {} | {}'.format(self.url, self.company, 
+        return '{} | {} | {} | {}'.format(self.url, self.company,
                                           ', '.join(self.techs), self.site)
 
 # a common pair to reference job id in aggregator sites
@@ -107,6 +126,8 @@ class PageParser:
     save_pages_to parameter turns on saving of requested pages into the specified directory.
 
     """
+    # pylint: disable=unused-argument,no-self-use
+
     def __init__(self, save_pages_to=None, agg_parsers=None):
         if save_pages_to:
             save_pages_to = pathlib.Path(save_pages_to)
@@ -125,9 +146,9 @@ class PageParser:
 
         page_name = prefix + '.' + page_name + suffix
 
-        G_LOG.info('saving page {} as {}'.format(url, page_name))
-        with self.save_pages_to.joinpath(page_name).open(mode='w') as f1:
-            print(text, file=f1)
+        G_LOG.info('saving page %s as %s', url, page_name)
+        with self.save_pages_to.joinpath(page_name).open(mode='w') as file_:
+            print(text, file=file_)
 
     def _extract_company_name(self, url, text, tree):
         # we need a generic way of company name extraction from an arbitrary page
@@ -143,7 +164,7 @@ class PageParser:
         return extract_site_url(url)
 
     def _extract_description(self, url, text, tree):
-       return tree.xpath('string(./body)')
+        return tree.xpath('string(./body)')
 
     def parse_job_page(self, url, text, extractor, tree=None):
         """A generic method for parsing pages containing a job description.
@@ -188,6 +209,8 @@ class PageParser:
 
 
 class AggregatorParser:
+    """A base class fro the specific job aggregator site parsers."""
+    # pylint: disable=unused-argument,no-self-use
     netloc = None
     def check_for_job_url(self, url, text, tree=None):
         """Check whether the page contains a link to an external job description.
@@ -201,6 +224,11 @@ class AggregatorParser:
         return
 
     def parse_page(self, url, text, extractor):
+        """A generic implementation of text parsing for the aggregator sites.
+
+        We expect that the parsed page contains the job id. Otherwise, it is some
+        other page on the aggregator site which hardly contains a job description."""
+
         tree = etree.fromstring(text)
 
         # check if the page is a job description
@@ -208,13 +236,15 @@ class AggregatorParser:
         if job_id:
             self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
             return self.parse_job_page(url, text, extractor, tree)
-        else:
-            self.save_if_needed(url, text)
-            return None, 'The url is not a job description/vacancy.'
+
+        self.save_if_needed(url, text)
+        return None, 'The url is not a job description/vacancy.'
 
 
 class IndeedParser(AggregatorParser, PageParser):
-    # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
+    """Parser for indeed.com."""
+    # mobile version of jobs contains less noise:
+    # https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
     netloc = "www.indeed.com"
 
     def extract_job_id(self, url, text, tree):
@@ -238,29 +268,33 @@ class IndeedParser(AggregatorParser, PageParser):
 
 
 class NewtonSoftwareParser(AggregatorParser, PageParser):
+    """A parser for newton.newtonsoftware.com jobs."""
     netloc = "newton.newtonsoftware.com"
 
     def extract_job_id(self, url, text, tree):
         urlp = urlparse(url)
         query = parse_qs(urlp.query)
-        if 'clientId' in query and 'id' in query and tree.xpath('.//table[@id="gnewtonJobDescription"]'):
+        if 'clientId' in query and 'id' in query and \
+            tree.xpath('.//table[@id="gnewtonJobDescription"]'):
+
             # ids are hex chars
-            client_id = re.match('\w+$', query['clientId'][0])
-            job_id = re.match('\w+$', query['id'][0])
+            client_id = re.match(r'\w+$', query['clientId'][0])
+            job_id = re.match(r'\w+$', query['id'][0])
             if not client_id or not job_id:
                 return
             return JobId(client_id.group(0), job_id.group(0))
 
     def _extract_company_name(self, url, text, tree):
         # lxml lowercases the attribute names!
-        return tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
+        return tree.xpath(
+            'string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
 
     def _extract_company_site(self, url, text, tree):
-       continue_url = tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-continueurl)')
-       if continue_url:
-           return extract_site_url(continue_url)
-       else:
-           return '' 
+        continue_url = \
+            tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-continueurl)')
+        if continue_url:
+            return extract_site_url(continue_url)
+        return ''
 
     def _extract_description(self, url, text, tree):
         return tree.xpath('string(.//td[@id="gnewtonJobDescriptionText"])')
@@ -290,14 +324,14 @@ class NewtonSoftwareParser(AggregatorParser, PageParser):
 
         query = parse_qs(urlparse(marker).query)
 
-        if not 'clientId' in query:
+        if 'clientId' not in query:
             return
 
         client_id = query['clientId'][0]
 
         query = [('clientId', client_id), ('id', job_id), ('source', 'Indeed')]
 
-        return 'https://newton.newtonsoftware.com/career/JobIntroduction.action?{}'.format(urlencode(query))
+        return 'https://{}/career/JobIntroduction.action?{}'.format(self.netloc, urlencode(query))
 
 
 class GreenHouseParser(AggregatorParser, PageParser):
@@ -320,6 +354,7 @@ class GreenHouseParser(AggregatorParser, PageParser):
     <meta property="og:url" content="https://boards.greenhouse.io/pantheon/jobs/619056"></meta>
 
     """
+    # pylint: disable=unused-argument,no-self-use
     netloc = "boards.greenhouse.io"
 
     def extract_job_id(self, url, text, tree):
@@ -333,15 +368,13 @@ class GreenHouseParser(AggregatorParser, PageParser):
         jobs_url = tree.xpath('string(.//div[@id="header"]/a/@href)')
         if jobs_url:
             return extract_site_url(jobs_url)
-        else:
-            return ''
+        return ''
 
     def _extract_company_name(self, url, text, tree):
         chunk = tree.xpath('string(.//div[@id="header"]/span[@class="company-name"])').strip()
         if chunk.startswith('at '):
             return chunk[3:]
-        else:
-            return chunk
+        return chunk
 
     def _exract_description(self, url, text, tree):
         return tree.xpath('string(.//div[@id="content"])')
@@ -354,7 +387,7 @@ class GreenHouseParser(AggregatorParser, PageParser):
         if tree is None:
             tree = etree.fromstring(text)
 
-        # the url should contain a numeric `gh_jid` parameter and there should be 
+        # the url should contain a numeric `gh_jid` parameter and there should be
         # a script tag with @src to boards.greenhouse.io
         query = parse_qs(urlparse(url).query)
         if 'gh_jid' not in query:
@@ -382,13 +415,15 @@ class GreenHouseParser(AggregatorParser, PageParser):
 
 
 class HireBridgeParser(AggregatorParser, PageParser):
+    """A parser for the jobs from recruit.hirebridge.com."""
     netloc = 'recruit.hirebridge.com'
 
     def extract_job_id(self, url, text, tree):
-        # example http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451687&locvalue=1059
+        # example url:
+        # http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451687&locvalue=1059
         permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
         if not permanent_url:
-            return 
+            return
         urlp = urlparse(permanent_url)
         query = parse_qs(urlp.query)
         if 'cid' in query and 'jid' in query:
@@ -405,11 +440,11 @@ class HireBridgeParser(AggregatorParser, PageParser):
         # naive assumption that the job descriptions contains references to its own site
         if jobs_url:
             return extract_site_url(jobs_url[0])
-        else:
-            return ''
+        return ''
 
 
 class JobviteParser(AggregatorParser, PageParser):
+    """A parser for the jobs from jobs.jobvite.com."""
     netloc = "jobs.jobvite.com"
 
     def extract_job_id(self, url, text, tree):
@@ -419,8 +454,6 @@ class JobviteParser(AggregatorParser, PageParser):
             match = re.match('/([^/]+)/job/([^/?]+)$', urlp.path)
             if match:
                 return JobId(match.group(1), match.group(2))
-            else:
-                return
         # else we may try to extract from the page
 
     def _extract_company_site(self, url, text, tree):
@@ -429,15 +462,15 @@ class JobviteParser(AggregatorParser, PageParser):
         # naive assumption that the job descriptions contains references to its own site
         if jobs_url:
             return extract_site_url(jobs_url[0])
-        else:
-            return ''
+        return ''
 
     def _extract_company_name(self, url, text, tree):
         chunk = tree.xpath('string(.//div[@class="jv-logo"]/a/img/@alt)')
         return chunk
 
-   
+
 class DiceParser(AggregatorParser, PageParser):
+    """A parser for the jobs from www.dice.com."""
     netloc = "www.dice.com"
 
     def extract_job_id(self, url, text, tree):
@@ -457,8 +490,9 @@ class DiceParser(AggregatorParser, PageParser):
         chunk = tree.xpath('string(.//li[@itemprop="hiringOrganization"]//span[@itemprop="name"])')
         return chunk
 
-   
+
 def build_netloc_to_parser_map():
+    """Build a map from the domain name to the corresponding AggregatorParser."""
     cur_module = sys.modules[__name__]
     the_map = {}
     for attr in dir(cur_module):

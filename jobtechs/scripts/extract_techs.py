@@ -19,7 +19,9 @@ import requests
 
 from jobtechs.common import DEFAULT_HEADERS, iter_good_lines
 from jobtechs.fetcher import ThrottledFetcher
-from jobtechs.parser import PageParser, IndeedParser, TermsExtractor, NewtonSoftwareParser, GreenHouseParser
+from jobtechs.parser import (PageParser, IndeedParser, 
+                            TermsExtractor, NewtonSoftwareParser, 
+                            GreenHouseParser, HireBridgeParser)
 
 G_LOG = logging.getLogger(__name__)
 
@@ -72,6 +74,12 @@ class TechsExtractionRunner:
             'boards.greenhouse.io':
                 ThrottledFetcher(
                     parser=GreenHouseParser(save_pages_to=self.save_pages_to),
+                    terms_extractor=terms_extractor,
+                    q_out=self._q_out, q_err=self._q_err,
+                    max_workers=5),
+            'recruit.hirebridge.com':
+                ThrottledFetcher(
+                    parser=HireBridgeParser(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5),

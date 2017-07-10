@@ -384,11 +384,12 @@ class GreenHouseParser(PageParser, AggregatorParser):
 class HireBridgeParser(PageParser, AggregatorParser):
     netloc = 'recruit.hirebridge.com'
 
-    def extract_job_id_from_url(self, url):
+    def extract_job_id(self, url, text, tree):
         # example http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451687&locvalue=1059
-        if not url:
+        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
+        if not permanent_url:
             return 
-        urlp = urlparse(url)
+        urlp = urlparse(permanent_url)
         query = parse_qs(urlp.query)
         if 'cid' in query and 'jid' in query:
             return JobId(query['cid'][0], query['jid'][0])
@@ -398,8 +399,7 @@ class HireBridgeParser(PageParser, AggregatorParser):
         tree = etree.fromstring(text)
 
         # check if the page is a job description
-        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
-        job_id = self.extract_job_id_from_url(permanent_url)
+        job_id = self.extract_job_id(url, text, tree)
         if job_id:
             self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
             return self.parse_job_page(url, text, extractor, tree)
@@ -421,7 +421,46 @@ class HireBridgeParser(PageParser, AggregatorParser):
             return ''
 
 
+class JobviteParser(PageParser, AggregatorParser):
+    netloc = "jobs.jobvite.com"
 
+    def extract_job_id(self, url, text, tree):
+        # example http://jobs.jobvite.com/cloudera/job/oNg44fwV
+        if url:
+            urlp = urlparse(url)
+            match = re.match('/([^/]+)/job/([^/?]+)$', urlp.path)
+            if match:
+                return JobId(match.group(1), match.group(2))
+            else:
+                return
+        # else we may try to extract from the page
+
+    def parse_page(self, url, text, extractor):
+        tree = etree.fromstring(text)
+
+        # check if the page is a job description
+        job_id = self.extract_job_id(url, text, tree)
+        if job_id:
+            self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
+            return self.parse_job_page(url, text, extractor, tree)
+        else:
+            self.save_if_needed(url, text)
+            return None, 'The url is not a job description/vacancy.'
+
+    def _extract_company_site(self, url, text, tree):
+        jobs_url = tree.xpath('.//a/@href')
+        jobs_url = [url1 for url1 in jobs_url if url1.startswith('http')]
+        # naive assumption that the job descriptions contains references to its own site
+        if jobs_url:
+            return extract_site_url(jobs_url[0])
+        else:
+            return ''
+
+    def _extract_company_name(self, url, text, tree):
+        chunk = tree.xpath('string(.//div[@class="jv-logo"]/a/img/@alt)')
+        return chunk
+
+   
 def build_netloc_to_parser_map():
     cur_module = sys.modules[__name__]
     the_map = {}

@@ -3,6 +3,7 @@ import logging
 import lxml.html as etree
 import pathlib
 import re
+import sys
 from urllib.parse import urlparse, parse_qs, urlencode
 from hashlib import sha1
 
@@ -178,6 +179,7 @@ class PageParser:
 
 
 class AggregatorParser:
+    netloc = None
     def check_for_job_url(self, url, text, tree=None):
         """Check whether the page contains a link to an external job description.
 
@@ -188,12 +190,12 @@ class AggregatorParser:
 
 class IndeedParser(PageParser, AggregatorParser):
     # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
+    netloc = "www.indeed.com"
 
     def parse_page(self, url, text, extractor):
         tree = etree.fromstring(text)
 
         alt_url = tree.xpath('string(.//link[@rel="alternate" and @media="handheld"]/@href)')
-        print(alt_url)
         if alt_url:
             job_id = re.search(r'[?]jk=(\w+)', alt_url)
             if job_id:
@@ -217,6 +219,7 @@ class IndeedParser(PageParser, AggregatorParser):
 
 
 class NewtonSoftwareParser(PageParser, AggregatorParser):
+    netloc = "newton.newtonsoftware.com"
     def _extract_company_name(self, url, text, tree):
         # lxml lowercases the attribute names!
         return tree.xpath('string(.//span[@id="indeed-apply-widget"]/@data-indeed-apply-jobcompanyname)')
@@ -302,6 +305,7 @@ class GreenHouseParser(PageParser, AggregatorParser):
     <meta property="og:url" content="https://boards.greenhouse.io/pantheon/jobs/619056"></meta>
 
     """
+    netloc = "boards.greenhouse.io"
     def _extract_company_site(self, url, text, tree):
         jobs_url = tree.xpath('string(.//div[@id="header"]/a/@href)')
         if jobs_url:
@@ -366,3 +370,15 @@ class GreenHouseParser(PageParser, AggregatorParser):
         query = [('for', client_id), ('token', job_id)]
 
         return 'https://boards.greenhouse.io/embed/job_app?{}'.format(urlencode(query))
+
+
+def build_netloc_to_parser_map():
+    cur_module = sys.modules[__name__]
+    the_map = {}
+    for attr in dir(cur_module):
+        obj = getattr(cur_module, attr)
+        if isinstance(obj, type) and issubclass(obj, AggregatorParser) and obj.netloc:
+            the_map[obj.netloc] = obj
+    return the_map
+
+netloc_to_parser_map = build_netloc_to_parser_map()

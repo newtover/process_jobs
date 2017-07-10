@@ -19,9 +19,7 @@ import requests
 
 from jobtechs.common import DEFAULT_HEADERS, iter_good_lines
 from jobtechs.fetcher import ThrottledFetcher
-from jobtechs.parser import (PageParser, IndeedParser, 
-                            TermsExtractor, NewtonSoftwareParser, 
-                            GreenHouseParser, HireBridgeParser)
+from jobtechs.parser import netloc_to_parser_map, TermsExtractor, PageParser
 
 G_LOG = logging.getLogger(__name__)
 
@@ -58,32 +56,16 @@ class TechsExtractionRunner:
 
     def _init_fetchers(self):
         terms_extractor = self.make_terms_extractor(self.terms_path)
+        # add specific parsers for job aggregators
         self._fetchers = {
-            'www.indeed.com': 
-                ThrottledFetcher(
-                    parser=IndeedParser(save_pages_to=self.save_pages_to),
+            netloc: ThrottledFetcher(
+                    parser=parser_cls(save_pages_to=self.save_pages_to),
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5),
-            'newton.newtonsoftware.com':
-                ThrottledFetcher(
-                    parser=NewtonSoftwareParser(save_pages_to=self.save_pages_to),
-                    terms_extractor=terms_extractor,
-                    q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5),
-            'boards.greenhouse.io':
-                ThrottledFetcher(
-                    parser=GreenHouseParser(save_pages_to=self.save_pages_to),
-                    terms_extractor=terms_extractor,
-                    q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5),
-            'recruit.hirebridge.com':
-                ThrottledFetcher(
-                    parser=HireBridgeParser(save_pages_to=self.save_pages_to),
-                    terms_extractor=terms_extractor,
-                    q_out=self._q_out, q_err=self._q_err,
-                    max_workers=5),
+                    max_workers=5)
+            for netloc, parser_cls in netloc_to_parser_map.items()
         }
+        # add general parser for other pages
         generic_parser = PageParser(
             save_pages_to=self.save_pages_to,
             agg_parsers=[fetcher.parser for fetcher in self._fetchers.values()]
@@ -96,7 +78,6 @@ class TechsExtractionRunner:
 
         for fetcher in self._fetchers.values():
             fetcher.start()
-
 
     def _write_results(self, q_out):
         while True:

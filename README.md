@@ -28,8 +28,10 @@ The task can be split into several parts:
     at the first glance, most of the urls lead to the popular vacancy sites.
 
 ## How to run ##
-The project contains a Vagrant configuration file, that is you can just vagrant up in the directory and a new virtual-box will be created.
+The package can be installed with pip from the directory: `pip install .`.
 
-If you prefer to run locally, there is a requirements.txt site to configure the python3 environment.
+The project contains a Vagrant configuration file, that is you can just vagrant up in the directory and a new virtual-box will be created. The prject is located in `/vagrant` directory within the virtual system.
 
-The project as well contains a Makefile, so that you could see how the script is running (basically it is `python3 -m jobs.scripts.extract_products < job_urls.txt`).
+If you prefer to develop run locally, there is also a requirements.txt site to configure the python3 environment.
+
+The project as well contains a Makefile, so that you could see how the script is running. You can run `python3 -m jobs.scripts.extract_techs --help` to see the options.

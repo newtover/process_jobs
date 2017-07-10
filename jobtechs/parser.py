@@ -156,6 +156,9 @@ class PageParser:
         ## print(description)
         terms = extractor.extract_terms(description)
         terms = extractor.terms_to_list(terms)
+        if not company and not terms and not site:
+            return None, 'Nothing extracted. The job is probably no longer active.'
+
         return Result(url, company, terms, site), None
 
     def parse_page(self, url, text, extractor):
@@ -223,6 +226,56 @@ class NewtonSoftwareParser(PageParser, AggregatorParser):
     def _extract_description(self, url, text, tree):
         return tree.xpath('string(.//td[@id="gnewtonJobDescriptionText"])')
 
+    def parse_page(self, url, text, extractor):
+        tree = etree.fromstring(text)
+        urlp = urlparse(url)
+        query = parse_qs(urlp.query)
+        if 'clientId' in query and 'id' in query and tree.xpath('.//table[@id="gnewtonJobDescription"]'):
+            # ids are hex chars
+            client_id = re.match('\w+$', query['clientId'][0])
+            job_id = re.match('\w+$', query['id'][0])
+            if not client_id or not job_id:
+                return None, 'Ids contain strage characters: {} / {}'.format(
+                    query['clientId'][0], query['id'][0])
+            self.save_if_needed(url, text, '{}.{}'.format(client_id.group(0), job_id.group(0)))
+            return self.parse_job_page(url, text, extractor, tree)
+        else:
+            return None, 'The url is not a job description/vacancy.'
+
+    def check_for_job_url(self, url, text, tree=None):
+        """Check whether the page contains a link to an external job description.
+
+        If the link is found, it is returned. None otherwise.
+        """
+        if tree is None:
+            tree = etree.fromstring(text)
+
+        # an example url:
+        # http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
+        query = parse_qs(urlparse(url).query)
+        if 'gni' not in query or 'gnk' not in query or query['gnk'][0] != 'job':
+            return
+
+        job_id = query['gni'][0]
+
+        # looking for [https:]//newton.newtonsoftware.com/career/iframe.action?clientId=[0-9af]+
+        # src might lack the http(s) prefix using relative urls
+        marker = '//newton.newtonsoftware.com/career/iframe.action'
+        marker = tree.xpath('string(.//script[contains(@src, "{}")]/@src)'.format(marker))
+        if not marker:
+            return
+
+        query = parse_qs(urlparse(marker).query)
+
+        if not 'clientId' in query:
+            return
+
+        client_id = query['clientId'][0]
+
+        query = [('clientId', client_id), ('id', job_id), ('source', 'Indeed')]
+
+        return 'https://newton.newtonsoftware.com/career/JobIntroduction.action?{}'.format(urlencode(query))
+
 
 class GreenHouseParser(PageParser, AggregatorParser):
     """Specific parser for greenhouse.io.
@@ -286,7 +339,7 @@ class GreenHouseParser(PageParser, AggregatorParser):
         # the url should contain a numeric `gh_jid` parameter and there should be 
         # a script tag with @src to boards.greenhouse.io
         query = parse_qs(urlparse(url).query)
-        if not 'gh_jid' in query:
+        if 'gh_jid' not in query:
             return
 
         job_id = query['gh_jid'][0]
@@ -300,7 +353,7 @@ class GreenHouseParser(PageParser, AggregatorParser):
 
         query = parse_qs(urlparse(marker).query)
 
-        if not 'for' in query:
+        if 'for' not in query:
             return
 
         client_id = query['for'][0]

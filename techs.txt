@@ -30,3 +30,9 @@ PHP
 ExtJS
 Unix
 Linux
+Apache Hadoop
+ITIL
+HIPAA
+PCI-DSS
+GLBA
+SOX

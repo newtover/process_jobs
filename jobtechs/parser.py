@@ -188,27 +188,32 @@ class AggregatorParser:
 
 class IndeedParser(PageParser, AggregatorParser):
     # mobile version of jobs contains less noise: https://www.indeed.com/m/viewjob?jk=ce09ccbdef05dafc
-    def parse_job(self, text, extractor):
-        tree = etree.fromstring(text)
-        result = {
-            'company': tree.xpath('string(.//span[@class="company"])'),
-        }
-        description = tree.xpath('string(.//span[@id="job_summary"])')
-        terms = extractor.extract_terms(description)
-        result['techs'] = extractor.terms_to_list(terms)
-        return result
 
     def parse_page(self, url, text, extractor):
-        urlp = urlparse(url)
-        if """rel="alternate" media="handheld" href="/m/viewjob?jk=""" in text:
-            qs = parse_qs(urlp.query)
-            job = self.parse_job(text, extractor)
-            self.save_if_needed(url, text, 'indeed.{}.html'.format(qs.get('jk', ['empty'])[0]))
-                
-            res = Result(url, job.get('company'), job.get('techs', ''), '')
-            return res, None
-        else:
-            return super().parse_page(url, text, extractor)
+        tree = etree.fromstring(text)
+
+        alt_url = tree.xpath('string(.//link[@rel="alternate" and @media="handheld"]/@href)')
+        print(alt_url)
+        if alt_url:
+            job_id = re.search(r'[?]jk=(\w+)', alt_url)
+            if job_id:
+                self.save_if_needed(url, text, job_id.group(1))
+                return self.parse_job_page(url, text, extractor, tree)
+
+        self.save_if_needed(url, text)
+        return None, 'The url is not a job description/vacancy.'
+
+    def _extract_company_name(self, url, text, tree):
+        # lxml lowercases the attribute names!
+        return tree.xpath('string(.//span[@class="company"])')
+
+    def _extract_description(self, url, text, tree):
+        return tree.xpath('string(.//span[@id="job_summary"])')
+
+    def _extract_company_site(self, url, text, tree):
+        # there is no link on th page
+        # to be able to extract the company site we should visit tha company page on the site
+        return ''
 
 
 class NewtonSoftwareParser(PageParser, AggregatorParser):

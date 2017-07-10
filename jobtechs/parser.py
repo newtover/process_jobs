@@ -131,6 +131,11 @@ class PageParser:
 
     def _extract_company_name(self, url, text, tree):
         # we need a generic way of company name extraction from an arbitrary page
+        # a naive assumption is that the company name should be in the page title
+        # but its not clear how to extract it.
+        # If we have a large collection of pages, we could collect a test set of job page titles
+        # and try to find out how to extract company names by machine learning
+        # title = tree.xpath('string(head/title)')
         return ''
 
     def _extract_company_site(self, url, text, tree):

@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque, namedtuple
 import logging
 import lxml.html as etree
 import pathlib
@@ -85,6 +85,7 @@ class TermsExtractor:
 
 
 class Result:
+    """Object representing page parsing results."""
     def __init__(self, url, company, techs, site):
         self.url = url
         self.company = company
@@ -94,6 +95,9 @@ class Result:
     def __str__(self):
         return '{} | {} | {} | {}'.format(self.url, self.company, 
                                           ', '.join(self.techs), self.site)
+
+# a common pair to reference job id in aggregator sites
+JobId = namedtuple('JobId', 'company_id job_id')
 
 
 class PageParser:
@@ -370,6 +374,47 @@ class GreenHouseParser(PageParser, AggregatorParser):
         query = [('for', client_id), ('token', job_id)]
 
         return 'https://boards.greenhouse.io/embed/job_app?{}'.format(urlencode(query))
+
+
+class HireBridgeParser(PageParser, AggregatorParser):
+    netloc = 'recruit.hirebridge.com'
+
+    def extract_job_id_from_url(self, url):
+        # example http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451687&locvalue=1059
+        if not url:
+            return 
+        urlp = urlparse(url)
+        query = parse_qs(urlp.query)
+        if 'cid' in query and 'jid' in query:
+            return JobId(query['cid'][0], query['jid'][0])
+        return
+
+    def parse_page(self, url, text, extractor):
+        tree = etree.fromstring(text)
+
+        # check if the page is a job description
+        permanent_url = tree.xpath('string(head/meta[@property="og:url"]/@content)').strip()
+        job_id = self.extract_job_id_from_url(permanent_url)
+        if job_id:
+            self.save_if_needed(url, text, '{}.{}'.format(job_id.company_id, job_id.job_id))
+            return self.parse_job_page(url, text, extractor, tree)
+        else:
+            self.save_if_needed(url, text)
+            return None, 'The url is not a job description/vacancy.'
+
+    def _extract_company_name(self, url, text, tree):
+        chunk = tree.xpath('string(.//div[@id="logo"]/h1/img/@alt)')
+        return chunk
+
+    def _extract_company_site(self, url, text, tree):
+        jobs_url = tree.xpath('.//div[@id="rightcol"]//a/@href')
+        jobs_url = [url1 for url1 in jobs_url if url1.startswith('http')]
+        # naive assumption that the job descriptions contains references to its own site
+        if jobs_url:
+            return extract_site_url(jobs_url[0])
+        else:
+            return ''
+
 
 
 def build_netloc_to_parser_map():

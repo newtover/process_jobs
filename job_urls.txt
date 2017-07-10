@@ -1,44 +1,48 @@
-# urls to check
-# 404, sorry, we can't find the page
+# the job description is missing (404)
 #https://boards.greenhouse.io/embed/job_app?for=pantheon&token=135120&b=https://www.getpantheon.com/jobs
-# another one, company domain can be parsed out from the page
+# another one, still actual (processed correctly)
 https://boards.greenhouse.io/embed/job_app?for=pantheon&token=619056&b=https://pantheon.io/careers/apply
+# a list of jobs https://boards.greenhouse.io/embed/job_board?for=pantheon
+# a job with a reference to greenhouse
+https://pantheon.io/careers/apply?gh_jid=753461
 
-# the job description is downloaded with JS, this one is missing and but there is no sign of it on tha page (status code is 200) 
-# http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
-# Vacancies for alteryx.com come from https://newton.newtonsoftware.com/career/CareerHome.action?clientId=9aa0050632afa2010132b69b35493eab&gnewtonResize=https://newton.newtonsoftware.com/career/GnewtonResize.htm&specialization=&source=Indeed
-# Though the page does not contain the job description, it contains a clientId with which we can get a list of jobs. 
-# aux/newton_jobs.py is a script which checks the page for a newtonsoftware's client id and if the id is found it lists the jobs. 
-# an example vacancy, domain of the company can be parsed from homeUrl variable in JS:
-https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=Indeed
+# the job description is missing, but the server returns 200
+# we anyway find a marker of newton.newtonsoftware
+http://www.alteryx.com/careers?gnk=job&gni=8a7886f8518a669b01518ee8e5c07d58&gns=Indeed
+# here is the generated link (found in failed_urls.txt), it should return 404 or no longer active
+https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7886f8518a669b01518ee8e5c07d58&source=Indeed
+# another one, but active
+https://newton.newtonsoftware.com/career/JobIntroduction.action?clientId=8aa0050632afa2010132b69b35493eab&id=8a7880665cb19ccc015cc1f77b0a6410&source=
 
-# a jobs site, there is context advertizing. The TLD is absent on the page. As I understand, the site is an aggregator of job descriptions from other sites.
-# there is an "original job" link, which may be followed to another site where the TLD can sometimes be present.
 http://www.indeed.com/viewjob?jk=8539193e3a45a062&q=sales+operations&l=San+Francisco%2C+CA&tk=1aevt39cab9rbe1v&from=web
-http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR7jOVeKpHgZBD8uj-JYSLVQQdOzuvtcRZqR1VUgvQgUCLrlSAZIc8VspZ09RpfJLmZ1g
+http://www.indeed.com/cmp/Exablox/jobs/Devop-Cloud-Management-System-053c56b763ebd5c5?sjdu=QwrRXKrqZ3CNX5W-O9jEvVKh33UeeQGaPWHksPPR
 http://www.indeed.com/cmp/The-Resource-Corner,-LLC/jobs/Bookkeeper-ce09ccbdef05dafc?sjdu=QwrRXKrqZ3CNX5W-O9jEvZYUjcFz8G6VtThA0LDUaBBKkXOI7HyNUFAgnmvj10geaet8H1fzoalk9SEj0AgHMA
 
-# 404, the vacancy is absent. As I understand this is not an aggregator, but a company that publishes its own jobs.
-# the jobs are here: http://marketo.jobs/careers/, the TLD can be parsed out of the url itself.
-# http://marketo.jobs/careers/oJTD1fw0/security-administrator?jvs=IndeedSponsored
-# another vacancy:
-http://marketo.jobs/careers/oTU95fwL/senior-software-engineer-marketing-platform
+# missing job description (404), the jobs are taken from hirebridge.com (separate parser is required)
+http://marketo.jobs/careers/oJTD1fw0/security-administrator?jvs=IndeedSponsored
+# example job from hirebridge (I can't see how the ids are related, marketo doesn't seem to pass any except for cid, which is company id, haribridge is opened in an iframe)
+http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451687&locvalue=1059
+http://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid=7744&jid=451603&locvalue=1059
 
-# 404. Besides, I had to remove "br" encoding from Firefox's Accept-Encoding header, since Facebook uses it, but requests dows not support it.
+# missing job (404)
 #https://www.facebook.com/careers/jobs/a0I1200000IA4pXEAT/
+# existing job
 https://www.facebook.com/careers/jobs/a0I1200000JXkMREA1/
 
-# The vacancy is absent and I can not find anything similar. Status code is 200 instead of 404.
-# http://hire.jobvite.com/CompanyJobs/Careers.aspx?k=Job&c=q669Vfw0&j=oajq2fwF&s=Indeed
+# missing job (404), the url looks like jobvite.com is a job aggregator and c=q669Vfw0 denotes a company
+#http://hire.jobvite.com/CompanyJobs/Careers.aspx?k=Job&c=q669Vfw0&j=oajq2fwF&s=Indeed
+# http://hire.jobvite.com/CompanyJobs/Careers.aspx?k=Job&c=q669Vfw0 redirects to http://jobs.jobvite.com/careers/cloudera/p/main?__jvst=Career%20Site, a list of positions (cloudera seems to be an id):
+# http://jobs.jobvite.com/cloudera/jobs 
+# an example position (client_id=cloudera, job_id=oNg44fwV): separate parser is required
+http://jobs.jobvite.com/cloudera/job/oNg44fwV
 
 
-# 404. And it seems I have to make some registration to be able to view something.
-https://jobs.lever.co/breeze/11831827-b10e-4000-8d5a-875fe7def7bc?lever-source=indeed
+# missing job (404), looks like an aggregator where breeze is client id and 11831827-b10e-4000-8d5a-875fe7def7bc is job id
+# the site https://www.breeze.pm/jobs hosts its jobs itself
+#https://jobs.lever.co/breeze/11831827-b10e-4000-8d5a-875fe7def7bc?lever-source=indeed
 
-
-# 404. Sorry! That job has been removed. 
-# https://www.dice.com/jobs/detail/10230516/335784?src=27&rx_medium=cpc&CMPID=AG_IN_PD_JS_AV_OG_RC_&utm_source=Indeed&utm_medium=Aggregator&utm_content=&utm_campaign=Advocacy_Ongoing&rx_source=Indeed&rx_campaign=Indeed18&rx_group=85
-# the vacancies site, there is context advertising. TLD is missing on the page, but is available at a separate page linked at the top (https://www.dice.com/company/cybercod).
-https://www.dice.com/jobs/detail/Senior-JavaScript-Engineer-%26%2345-Angular-%7C-SaaS-%26%2345-San-Francisco-CyberCoders-San-Francisco-CA-94101/cybercod/RS2%26%2345136030562?icid=sr15-1p&q=SaaS%20Administrator&l=94101
-
+# its an old url and the job is missing
+#https://www.dice.com/jobs/detail/10230516/335784?src=27&rx_medium=cpc&CMPID=AG_IN_PD_JS_AV_OG_RC_&utm_source=Indeed&utm_medium=Aggregator&utm_content=&utm_campaign=Advocacy_Ongoing&rx_source=Indeed&rx_campaign=Indeed18&rx_group=85
+# a new url (groupId=cybercod, jobId=SM1-13765926): separate parser is required
+https://www.dice.com/jobs/detail/EPIC-Ambulatory-Analyst-%26%2345-Epic%2C-Epic-Ambulatory%2C-CyberCoders-Yakima-WA-98901/cybercod/SM1%26%234513765926?icid=sr1-1p
 

@@ -7,9 +7,17 @@ based on the job description.
  * List of keywords of products and tools that we are trying to identify
  * List of URLs with job descriptions
 
+The processing script processes urls gradually. Theoretically there is no limit on the amount of urls to process.
+An example url list with some comments is available (blank lines and lines starting with # are skipped on processing).
+
 ## Output ##
 The code should output the following columns for each job description:
 Job Description URL | Company Name | Tools (comma separated if more than one) | Website (optional)
+
+If an error occurred on processing a url, the url and the error go to failed_urls.txt file (can be configured).
+
+When a page contains a marker to a job description on another site (newton.newtonsoftware.com, boards.greenhouse.io, etc), the corresponding new url is written to the failed_urls.txt as well. 
+
 
 ## Example of the output ##
 https://boards.greenhouse.io/embed/job_app?for=pantheon&token=135120&b=https://www.getpantheon.com/jobs | Pantheon | Drupal, Cassandra, Dropbox, Amazon S3, Amazon SWF, Docker, CircleCI, Redis,  | pantheon.io

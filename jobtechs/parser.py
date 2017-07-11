@@ -33,7 +33,7 @@ def iter_n_grams(text, max_n):
     the word, we do not produce n-grams, since a punctuation is not
     supposed to be within a term.
 
-    We slightly extend the parser to support terms like c++, c#, 
+    We slightly extend the parser to support terms like c++, c#,
     .net and node.js, but the approach requires manual intervention.
     It is better to build something based on DFA.
     """

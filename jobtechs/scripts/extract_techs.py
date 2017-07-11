@@ -137,21 +137,27 @@ class TechsExtractionRunner:
         parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__)
         parser.add_argument(
             '--techs-file', type=pathlib.Path, default='techs.txt',
-            help='A file where the searched techs are listed: each tech on a separate line.')
+            help=('A file where the searched techs are listed: each tech on a separate line. '
+                  'Defaults to techs.txt.'))
         parser.add_argument(
             'infile', nargs='*', type=argparse.FileType('r'), default=[sys.stdin],
-            help='A file with a list of urls. Each url is supposed to contain a job description.')
+            help=('A file or a list of files with a list of urls. Each url is supposed '
+                  'to contain a job description. Defaults to stdin.'))
         parser.add_argument(
             '--errors-file', type=pathlib.Path, default='failed_urls.txt',
             help=('A tab-separated file to which we are going to dump urls requesting or parsing '
-                  'of which resulted in an error. The error message is dumped after the url.'))
+                  'of which resulted in an error. The error message is dumped after the url. '
+                  'Defaults to failed_urls.txt.'))
         parser.add_argument(
             '--log-file', type=argparse.FileType('a'), default='extract_techs.log',
-            help='A file where we write logs to')
+            help='A file where we write logs to. Defaults to extract_techs.log.')
         parser.add_argument(
             '--save-pages-to',
             help=('Save copies of the html into the specified directory. '
                   'By default html-files are not saved.'))
+        parser.add_argument(
+            '--outfile', type=argparse.FileType('w'), default='-',
+            help='A file where the results are saved to. Defaults to stdout.')
 
         args = parser.parse_args()
         if not args.techs_file.exists():

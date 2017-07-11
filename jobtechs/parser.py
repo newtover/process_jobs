@@ -46,13 +46,14 @@ def iter_n_grams(text, max_n):
     words = deque(maxlen=max_n)
     i = 0
     len_chunks = len(chunks)
-    prev_sep = '. '
+    prev_sep = ' '
     while i < len_chunks:
         word = chunks[i]
 
         # attach a . as in .Net
-        match = re.search(r'\W[.]$', prev_sep)
-        if match:
+        # we do not check for length: a single . between words should 
+        # be treated below
+        if prev_sep[-1] == '.' and word:
             word = '.' + word
             prev_sep = prev_sep[:-1]
 

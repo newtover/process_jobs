@@ -112,8 +112,11 @@ class TermsExtractor:
     def extract_terms(self, text):
         """Extract terms from the text description."""
         text = text.lower()
-        n_grams = set(self.iter_n_grams(text))
-        common = n_grams & self._terms
+        # iterate through n_grams and collect matches in common
+        common = {
+            n_gram for n_gram in self.iter_n_grams(text)
+            if n_gram in self._terms
+        }
         return common
 
     def terms_to_list(self, terms):

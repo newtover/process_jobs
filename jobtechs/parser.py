@@ -32,28 +32,48 @@ def iter_n_grams(text, max_n):
     if the word is separated by a space. If there is a puctuation before
     the word, we do not produce n-grams, since a punctuation is not
     supposed to be within a term.
+
+    We slightly extend the parser to support terms like c++, c#, 
+    .net and node.js, but the approach requires manual intervention.
+    It is better to build something based on DFA.
     """
     if not text:
         return []
     chunks = re.split(r'(\W+)', text)
     words = deque(maxlen=max_n)
-    words.append(chunks[0])
-    yield (chunks[0],)
-
-    for i in range(2, len(chunks), 2):
+    i = 0
+    len_chunks = len(chunks)
+    prev_sep = '. '
+    while i < len_chunks:
         word = chunks[i]
+
+        # attach a . as in .Net
+        match = re.search(r'\W[.]$', prev_sep)
+        if match:
+            word = '.' + word
+
+        if i < len_chunks - 2:
+            next_sep = chunks[i+1]
+            # there is # or + at the end of the word
+            match = re.match(r'([#+]+)\W', next_sep)
+            if match:
+                word += match.group(1)
+            # consists of a single . or -, and the next word is not empty
+            elif next_sep in ('-', '.') and chunks[i+2]:
+                word += next_sep + chunks[i+2]
+                i += 2
         yield (word,)
-        prev_sep = chunks[i-1].strip()
-        # we are not interested in n-grams split by punctuation
-        if prev_sep:  # some punctuation
+        if prev_sep.strip():
             words.clear()
-            words.append(word)
-        elif max_n > 1:  # only spacesi as separator
-            words.append(word)
+        words.append(word)
+        if max_n > 1:
             max_n_gram = tuple(words)
-            yield max_n_gram
-            for j in range(2, len(max_n_gram)):
+            # yield max_n_gram
+            for j in range(2, len(max_n_gram)+1):
                 yield max_n_gram[-j:]
+        if i < len_chunks - 1:
+            prev_sep = chunks[i+1]
+        i += 2
 
 
 class TermsExtractor:

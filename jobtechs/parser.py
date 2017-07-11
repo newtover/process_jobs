@@ -501,4 +501,4 @@ def build_netloc_to_parser_map():
             the_map[obj.netloc] = obj
     return the_map
 
-netloc_to_parser_map = build_netloc_to_parser_map()
+NETLOC_TO_PARSER_MAP = build_netloc_to_parser_map()

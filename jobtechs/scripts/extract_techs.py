@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 from jobtechs.common import iter_good_lines
 from jobtechs.fetcher import ThrottledFetcher
-from jobtechs.parser import netloc_to_parser_map, TermsExtractor, PageParser
+from jobtechs.parser import NETLOC_TO_PARSER_MAP, TermsExtractor, PageParser
 
 G_LOG = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class TechsExtractionRunner:
                     terms_extractor=terms_extractor,
                     q_out=self._q_out, q_err=self._q_err,
                     max_workers=5)
-            for netloc, parser_cls in netloc_to_parser_map.items()
+            for netloc, parser_cls in NETLOC_TO_PARSER_MAP.items()
         }
         # add general parser for other pages
         generic_parser = PageParser(

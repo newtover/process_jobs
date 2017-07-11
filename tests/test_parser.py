@@ -29,3 +29,29 @@ class TestIterNGrams(TestCase):
             [('a',), ('.net',), ('developer',)],
             list(iter_n_grams(text, 1))
         )
+
+    def test_prev_separator_processing(self):
+        # we want to check thet .net does not break (microsoft .net) bi-gram,
+        # since prev_sep contains a \S
+        text = 'microsoft .net'
+        self.assertEqual(
+            [('microsoft',), ('.net',), ('microsoft', '.net')],
+            list(iter_n_grams(text, 2))
+        )
+
+    def test_next_separator_merging(self):
+        # this should give us node.js.io as a single word
+        text = 'a node.js.io file'
+        self.assertEqual(
+            [('a',), ('node.js.io',), ('a', 'node.js.io'), ('file',), ('node.js.io', 'file')],
+            list(iter_n_grams(text, 2))
+        )
+
+    def test_next_separator_processing(self):
+        # we want to check that the sympols from the next_sep do not break bi-gram,
+        # since prev_sep for developer contains a \S
+        text = 'c# developer'
+        self.assertEqual(
+            [('c#',), ('developer',), ('c#', 'developer')],
+            list(iter_n_grams(text, 2))
+        )

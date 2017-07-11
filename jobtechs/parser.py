@@ -39,6 +39,9 @@ def iter_n_grams(text, max_n):
     """
     if not text:
         return []
+    # symbols that joint two words into one: node.js, Transact-SQL, PL/SQL
+    word_joiners = {'-', '.', '/'}
+
     chunks = re.split(r'(\W+)', text)
     words = deque(maxlen=max_n)
     i = 0
@@ -51,17 +54,28 @@ def iter_n_grams(text, max_n):
         match = re.search(r'\W[.]$', prev_sep)
         if match:
             word = '.' + word
+            prev_sep = prev_sep[:-1]
 
+        # words joined by word joiners
+        while i < len_chunks - 2:
+            next_sep = chunks[i+1]
+            # empty chunk might be at the end
+            if next_sep in word_joiners and chunks[i+2]:
+                word += next_sep + chunks[i+2]
+                i += 2
+            else:
+                break
+
+        # attach ++, #, etc
         if i < len_chunks - 2:
             next_sep = chunks[i+1]
             # there is # or + at the end of the word
             match = re.match(r'([#+]+)\W', next_sep)
             if match:
                 word += match.group(1)
-            # consists of a single . or -, and the next word is not empty
-            elif next_sep in ('-', '.') and chunks[i+2]:
-                word += next_sep + chunks[i+2]
-                i += 2
+                # cut the symbols from the separator
+                next_sep = next_sep[len(match.group(1)):]
+
         yield (word,)
         if prev_sep.strip():
             words.clear()
@@ -71,8 +85,8 @@ def iter_n_grams(text, max_n):
             # yield max_n_gram
             for j in range(2, len(max_n_gram)+1):
                 yield max_n_gram[-j:]
-        if i < len_chunks - 1:
-            prev_sep = chunks[i+1]
+        if i < len_chunks - 2:
+            prev_sep = next_sep
         i += 2
 
 

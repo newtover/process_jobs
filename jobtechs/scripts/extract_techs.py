@@ -155,9 +155,6 @@ class TechsExtractionRunner:
             '--save-pages-to',
             help=('Save copies of the html into the specified directory. '
                   'By default html-files are not saved.'))
-        parser.add_argument(
-            '--outfile', type=argparse.FileType('w'), default='-',
-            help='A file where the results are saved to. Defaults to stdout.')
 
         args = parser.parse_args()
         if not args.techs_file.exists():
